@@ -44,7 +44,11 @@ export function useMemoryHealth() {
 export function useMemoryClusters() {
   return useQuery({
     queryKey: ["memoryClusters"],
-    queryFn: () => gw<any>("/api/v1/memory/clusters").then(d => Array.isArray(d) ? d : d.clusters ?? []),
+    queryFn: () => gw<any>("/api/v1/memory/clusters").then(d => {
+      const arr = Array.isArray(d) ? d : d.clusters ?? [];
+      // Normalize: API returns nodeIds, component expects nodes
+      return arr.map((c: any) => ({ ...c, nodes: c.nodes ?? c.nodeIds ?? [] }));
+    }),
     staleTime: STALE.memory,
   });
 }

@@ -819,6 +819,80 @@ export function setOnboardingComplete(userName: string): void {
   `).run(userName, Date.now());
 }
 
+// Proactive intelligence: activity timestamps for preferred contact window
+export function getActivityTimestamps(days: number = 14): number[] {
+  const database = getDatabase();
+  const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+  try {
+    const rows = database.prepare(
+      "SELECT timestamp FROM activities WHERE timestamp > ? ORDER BY timestamp DESC"
+    ).all(cutoff) as Array<{ timestamp: number }>;
+    return rows.map(r => r.timestamp);
+  } catch {
+    // Table may not exist yet
+    return [];
+  }
+}
+
+export function getPreferredContactWindow(): { startHour: number; endHour: number } | null {
+  const database = getDatabase();
+  try {
+    database.exec(`CREATE TABLE IF NOT EXISTS flags (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at INTEGER
+    )`);
+  } catch { /* already exists */ }
+  const row = database.prepare("SELECT value FROM flags WHERE key = 'preferred_contact_window'").get() as { value: string } | undefined;
+  if (!row) return null;
+  try {
+    return JSON.parse(row.value) as { startHour: number; endHour: number };
+  } catch { return null; }
+}
+
+export function setPreferredContactWindow(startHour: number, endHour: number): void {
+  const database = getDatabase();
+  try {
+    database.exec(`CREATE TABLE IF NOT EXISTS flags (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at INTEGER
+    )`);
+  } catch { /* already exists */ }
+  database.prepare(`
+    INSERT OR REPLACE INTO flags (key, value, updated_at)
+    VALUES ('preferred_contact_window', ?, ?)
+  `).run(JSON.stringify({ startHour, endHour }), Date.now());
+}
+
+export function getLastProactiveSent(): number {
+  const database = getDatabase();
+  try {
+    database.exec(`CREATE TABLE IF NOT EXISTS flags (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at INTEGER
+    )`);
+  } catch { /* already exists */ }
+  const row = database.prepare("SELECT value FROM flags WHERE key = 'last_proactive_sent'").get() as { value: string } | undefined;
+  return row ? parseInt(row.value, 10) : 0;
+}
+
+export function setLastProactiveSent(timestamp: number): void {
+  const database = getDatabase();
+  try {
+    database.exec(`CREATE TABLE IF NOT EXISTS flags (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at INTEGER
+    )`);
+  } catch { /* already exists */ }
+  database.prepare(`
+    INSERT OR REPLACE INTO flags (key, value, updated_at)
+    VALUES ('last_proactive_sent', ?, ?)
+  `).run(String(timestamp), Date.now());
+}
+
 // First-message flag: set after onboarding, cleared after first AI response
 export function getFirstMessageFlag(): boolean {
   const database = getDatabase();
@@ -847,4 +921,3 @@ export function setFirstMessageFlag(active: boolean): void {
     VALUES ('first_message', ?, ?)
   `).run(active ? '1' : '0', Date.now());
 }
-

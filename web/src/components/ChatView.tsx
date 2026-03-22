@@ -15,6 +15,7 @@ interface Message {
   latency_ms?: number;
   streaming?: boolean;
   toolCalls?: ToolCallInfo[];
+  isProactive?: boolean;
 }
 
 interface ToolCallInfo {
@@ -112,7 +113,13 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
 
     const unsubProactive = nexusWS.on("proactive", (msg: WSMessage) => {
       const payload = msg.payload as { message: string };
-      setMessages(prev => [...prev, { id: String(Date.now()), role: "assistant", content: payload.message, timestamp: Date.now() }]);
+      setMessages(prev => [...prev, {
+        id: "proactive-" + Date.now(),
+        role: "assistant",
+        content: payload.message,
+        timestamp: Date.now(),
+        isProactive: true,
+      } as Message & { isProactive?: boolean }]);
       scrollToBottom();
     });
 
@@ -316,17 +323,23 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
         )}
 
         {messages.map((msg, idx) => (
-          <div key={msg.id} className={cn("flex gap-3 animate-fade-in max-w-4xl mx-auto", msg.role === "user" ? "justify-end" : "justify-start")}>
+          <div key={msg.id} className={cn("flex gap-3 max-w-4xl mx-auto", msg.role === "user" ? "justify-end" : "justify-start", msg.isProactive ? "animate-slideDown" : "animate-fade-in")}>
             {msg.role !== "user" && (
               <div className={cn("flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5",
                 msg.role === "system" ? "bg-red-500/10" : "bg-[var(--accent)]/15")}>
                 <Bot className={cn("w-4 h-4", msg.role === "system" ? "text-red-400" : "text-[var(--accent)]")} />
               </div>
             )}
-            <div className={cn("max-w-2xl rounded-xl px-4 py-2.5",
-              msg.role === "user" ? "bg-[var(--accent)]/15 text-white border border-[var(--accent)]/20"
+            <div className={cn("max-w-2xl rounded-xl px-4 py-2.5 relative",
+              msg.isProactive ? "bg-[var(--bg-surface)] text-gray-200 border-l-2 border-l-[var(--accent)] border border-white/[0.04]"
+              : msg.role === "user" ? "bg-[var(--accent)]/15 text-white border border-[var(--accent)]/20"
                 : msg.role === "system" ? "bg-red-500/10 text-red-300 border border-red-500/20"
                 : "bg-[var(--bg-surface)] text-gray-200 border border-white/[0.04]")}>
+              {msg.isProactive && (
+                <div style={{ position: "absolute", top: 6, right: 10, fontSize: 9, fontFamily: "var(--font-mono)", color: "var(--accent)", opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  NEXUS reached out
+                </div>
+              )}
               <div className="text-sm leading-relaxed whitespace-pre-wrap">
                 {renderContent(msg.content)}
                 {msg.streaming && <span className="inline-block w-[2px] h-4 bg-[var(--accent)] typing-cursor ml-0.5 align-middle" />}

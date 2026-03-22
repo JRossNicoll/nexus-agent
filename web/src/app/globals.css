@@ -77,3 +77,16 @@ select option {
 
 /* Utility classes matching design reference */
 .glass { background: rgba(12,14,18,0.6); backdrop-filter: blur(12px); }
+
+/* Proactive message slide-down animation */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slideDown { animation: slideDown 200ms ease-out; }
+
+/* Memory graph ripple pulse animation */
+@keyframes memoryRipple {
+  from { r: var(--start-r); opacity: 0.6; }
+  to   { r: var(--end-r); opacity: 0; }
+}
