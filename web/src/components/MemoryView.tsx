@@ -24,6 +24,10 @@ interface HealthData {
   oldest_memory?: string;
   conversation_count?: number;
   cluster_count?: number;
+  // API may return camelCase variants
+  totalMemories?: number;
+  addedThisWeek?: number;
+  staleMemories?: number;
 }
 
 interface Cluster {
@@ -244,10 +248,10 @@ export default function MemoryView() {
               <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-3)", textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 12 }}>Memory Health</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {[
-                  { label: "Total", value: health.total_memories },
-                  { label: "This week", value: "+" + health.memories_this_week },
-                  { label: "Stale", value: health.stale_count },
-                  { label: "Clusters", value: health.cluster_count || clusters.length },
+                  { label: "Total", value: health.total_memories ?? health.totalMemories ?? 0 },
+                  { label: "This week", value: "+" + (health.memories_this_week ?? health.addedThisWeek ?? 0) },
+                  { label: "Stale", value: health.stale_count ?? health.staleMemories ?? 0 },
+                  { label: "Clusters", value: health.cluster_count || clusters.length || 0 },
                 ].map(s => (
                   <div key={s.label} style={{ padding: "8px 10px", background: "var(--bg-raised)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)" }}>
                     <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text-1)", fontFamily: "var(--font-mono)" }}>{s.value}</div>
