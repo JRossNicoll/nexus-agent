@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
 import ChatView from '@/components/ChatView';
 import MemoryView from '@/components/MemoryView';
@@ -21,6 +21,9 @@ export default function Home() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(false);
+  // Track which tabs have been visited so we keep them mounted (cache)
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['home']));
+  const [pendingChat, setPendingChat] = useState<string | null>(null);
 
   // Persistent app-level WebSocket connection
   useEffect(() => {
@@ -52,6 +55,22 @@ export default function Home() {
       .finally(() => setCheckingOnboarding(false));
   }, [authenticated]);
 
+  // When activeTab changes, add it to visited set
+  useEffect(() => {
+    setVisitedTabs(prev => {
+      if (prev.has(activeTab)) return prev;
+      return new Set([...prev, activeTab]);
+    });
+  }, [activeTab]);
+
+  const handleSendFromHome = useCallback((msg: string) => {
+    setActiveTab('chat');
+    setPendingChat(msg);
+  }, []);
+
+  // All possible tabs
+  const allTabs = useMemo(() => ['home', 'chat', 'memory', 'skills', 'activity', 'settings'], []);
+
   if (checkingAuth || checkingOnboarding) {
     return (
       <div style={{
@@ -80,38 +99,26 @@ export default function Home() {
     return <OnboardingFlow onComplete={() => setNeedsOnboarding(false)} />;
   }
 
-  const handleSendFromHome = (msg: string) => {
-    setActiveTab('chat');
-    // Small delay so ChatView mounts before we send
-    setTimeout(() => {
-      nexusWS.sendChat(msg);
-    }, 200);
-  };
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'home':
-        return <HomeScreen onSend={handleSendFromHome} onNavigate={setActiveTab} />;
-      case 'chat':
-        return <ChatView />;
-      case 'memory':
-        return <MemoryView />;
-      case 'skills':
-        return <SkillsView />;
-      case 'activity':
-        return <ActivityView />;
-      case 'settings':
-        return <SettingsView />;
-      default:
-        return <HomeScreen onSend={handleSendFromHome} onNavigate={setActiveTab} />;
-    }
-  };
-
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg-base)' }}>
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {renderContent()}
+      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        {/* Render visited tabs with display:none to keep them cached */}
+        {allTabs.map(tab => {
+          const isActive = tab === activeTab;
+          const wasVisited = visitedTabs.has(tab);
+          if (!wasVisited) return null;
+          return (
+            <div key={tab} style={{ display: isActive ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden', height: '100%' }}>
+              {tab === 'home' && <HomeScreen onSend={handleSendFromHome} onNavigate={setActiveTab} />}
+              {tab === 'chat' && <ChatView pendingMessage={pendingChat} onPendingConsumed={() => setPendingChat(null)} />}
+              {tab === 'memory' && <MemoryView />}
+              {tab === 'skills' && <SkillsView />}
+              {tab === 'activity' && <ActivityView />}
+              {tab === 'settings' && <SettingsView />}
+            </div>
+          );
+        })}
       </main>
       <AmbientOrb />
       <CommandPalette onNavigate={setActiveTab} />

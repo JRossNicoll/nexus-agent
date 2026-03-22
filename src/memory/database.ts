@@ -818,3 +818,33 @@ export function setOnboardingComplete(userName: string): void {
     VALUES ('default', ?, 1, ?)
   `).run(userName, Date.now());
 }
+
+// First-message flag: set after onboarding, cleared after first AI response
+export function getFirstMessageFlag(): boolean {
+  const database = getDatabase();
+  try {
+    database.exec(`CREATE TABLE IF NOT EXISTS flags (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at INTEGER
+    )`);
+  } catch { /* already exists */ }
+  const row = database.prepare("SELECT value FROM flags WHERE key = 'first_message'").get() as { value: string } | undefined;
+  return row?.value === '1';
+}
+
+export function setFirstMessageFlag(active: boolean): void {
+  const database = getDatabase();
+  try {
+    database.exec(`CREATE TABLE IF NOT EXISTS flags (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at INTEGER
+    )`);
+  } catch { /* already exists */ }
+  database.prepare(`
+    INSERT OR REPLACE INTO flags (key, value, updated_at)
+    VALUES ('first_message', ?, ?)
+  `).run(active ? '1' : '0', Date.now());
+}
+

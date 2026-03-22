@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
+import { useMemories, useMemoryHealth, useMemoryClusters } from "@/lib/hooks";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:18799";
 
@@ -37,66 +38,29 @@ interface Cluster {
 }
 
 export default function MemoryView() {
-  const [memories, setMemories] = useState<Memory[]>([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
-  const [health, setHealth] = useState<HealthData | null>(null);
-  const [clusters, setClusters] = useState<Cluster[]>([]);
-  const [loading, setLoading] = useState(true);
   const [timelineValue, setTimelineValue] = useState(100);
   const graphRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const fetchMemories = useCallback(async () => {
-    try {
-      setLoading(true);
-      const url = search
-        ? `${GATEWAY}/api/v1/memories/search?q=${encodeURIComponent(search)}&limit=50`
-        : `${GATEWAY}/api/v1/memories?limit=50`;
-      let res = await fetch(url);
-      if (!res.ok && search) {
-        res = await fetch(`${GATEWAY}/api/v1/memories?q=${encodeURIComponent(search)}&limit=50`);
-      }
-      const data = await res.json();
-      const mems = Array.isArray(data) ? data : (data.memories || []);
-      setMemories(mems);
-    } catch {
-      setMemories([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [search]);
+  // React Query hooks — cached data shown instantly on revisit
+  const { data: memories = [], isLoading: loading } = useMemories(debouncedSearch);
+  const { data: health } = useMemoryHealth();
+  const { data: clusters = [] } = useMemoryClusters();
 
-  const fetchHealth = useCallback(async () => {
-    try {
-      const res = await fetch(`${GATEWAY}/api/v1/memory/health`);
-      if (res.ok) setHealth(await res.json());
-    } catch { /* ignore */ }
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(value), 300);
   }, []);
-
-  const fetchClusters = useCallback(async () => {
-    try {
-      const res = await fetch(`${GATEWAY}/api/v1/memory/clusters`);
-      if (res.ok) {
-        const data = await res.json();
-        setClusters(Array.isArray(data) ? data : (data.clusters || []));
-      }
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => { fetchMemories(); fetchHealth(); fetchClusters(); }, [fetchMemories, fetchHealth, fetchClusters]);
-
-  useEffect(() => {
-    if (!search) return;
-    const timer = setTimeout(() => fetchMemories(), 300);
-    return () => clearTimeout(timer);
-  }, [search, fetchMemories]);
 
   const deleteMemory = async (id: string) => {
     try {
       await fetch(`${GATEWAY}/api/v1/memories/${id}`, { method: "DELETE" });
-      setMemories(prev => prev.filter(m => m.id !== id));
       setSelectedMemory(null);
     } catch { /* ignore */ }
   };
@@ -107,18 +71,19 @@ export default function MemoryView() {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
       });
-      setMemories(prev => prev.map(m => m.id === id ? { ...m, content } : m));
       setEditing(false);
       setSelectedMemory(prev => prev ? { ...prev, content } : null);
     } catch { /* ignore */ }
   };
 
-  const filteredMemories = memories.filter(m => {
+  const mems: Memory[] = Array.isArray(memories) ? memories : [];
+
+  const filteredMemories = mems.filter(m => {
     if (timelineValue >= 100) return true;
     if (!m.created_at) return true;
     const created = new Date(m.created_at).getTime();
     const now = Date.now();
-    const oldest = memories.reduce((min, mem) => {
+    const oldest = mems.reduce((min, mem) => {
       const t = mem.created_at ? new Date(mem.created_at).getTime() : now;
       return t < min ? t : min;
     }, now);
@@ -168,12 +133,12 @@ export default function MemoryView() {
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
               <input
-                value={search} onChange={e => setSearch(e.target.value)}
+                value={search} onChange={e => handleSearchChange(e.target.value)}
                 placeholder="Search memories by concept..."
                 style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text-1)", fontSize: 13, fontFamily: "var(--font-ui)" }}
               />
               {search && (
-                <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", fontSize: 14 }}>&times;</button>
+                <button onClick={() => { setSearch(""); setDebouncedSearch(""); }} style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", fontSize: 14 }}>&times;</button>
               )}
             </div>
           </div>
@@ -265,7 +230,7 @@ export default function MemoryView() {
           {clusters.length > 0 && (
             <div style={{ padding: 16, borderBottom: "1px solid var(--border)" }}>
               <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-3)", textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 8 }}>Clusters</div>
-              {clusters.map((c, i) => (
+              {clusters.map((c: Cluster, i: number) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", fontSize: 12, color: "var(--text-2)" }}>
                   <span>{c.label}</span>
                   <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-3)" }}>{c.count}</span>
@@ -294,26 +259,27 @@ export default function MemoryView() {
                     {selectedMemory.confidence !== undefined && <div style={{ color: "var(--text-3)" }}>Confidence: <span style={{ color: confidenceColor(selectedMemory.confidence) }}>{Math.round(selectedMemory.confidence * 100)}%</span></div>}
                     {selectedMemory.source && <div style={{ color: "var(--text-3)" }}>Source: <span style={{ color: "var(--text-2)" }}>{selectedMemory.source}</span></div>}
                     {selectedMemory.created_at && <div style={{ color: "var(--text-3)" }}>Created: <span style={{ color: "var(--text-2)" }}>{new Date(selectedMemory.created_at).toLocaleDateString()}</span></div>}
-                    {selectedMemory.usage_count !== undefined && <div style={{ color: "var(--text-3)" }}>Used: <span style={{ color: "var(--text-2)" }}>{selectedMemory.usage_count} times</span></div>}
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-                    <button onClick={() => { setEditing(true); setEditContent(selectedMemory.content); }} style={{ flex: 1, padding: "6px 12px", background: "var(--bg-raised)", color: "var(--text-2)", border: "1px solid var(--border)", borderRadius: "var(--r-sm)", fontSize: 12, cursor: "pointer" }}>Edit</button>
-                    <button onClick={() => { if (confirm("Delete this memory?")) deleteMemory(selectedMemory.id); }} style={{ flex: 1, padding: "6px 12px", background: "rgba(235,100,90,0.08)", color: "#eb645a", border: "1px solid rgba(235,100,90,0.15)", borderRadius: "var(--r-sm)", fontSize: 12, cursor: "pointer" }}>Delete</button>
+                    <button onClick={() => { setEditing(true); setEditContent(selectedMemory.content); }}
+                      style={{ flex: 1, padding: "6px 12px", background: "var(--bg-raised)", color: "var(--text-2)", border: "1px solid var(--border)", borderRadius: "var(--r-sm)", fontSize: 12, cursor: "pointer" }}>
+                      Correct this memory
+                    </button>
+                    <button onClick={() => deleteMemory(selectedMemory.id)}
+                      style={{ padding: "6px 12px", background: "rgba(235,100,90,0.08)", color: "#eb645a", border: "1px solid rgba(235,100,90,0.15)", borderRadius: "var(--r-sm)", fontSize: 12, cursor: "pointer" }}>
+                      Delete
+                    </button>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div style={{ padding: 16, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3)", fontSize: 12, textAlign: "center" as const }}>
-              Click a memory to see details
+            <div style={{ padding: 16, flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <p style={{ fontSize: 12, color: "var(--text-3)", textAlign: "center" }}>Select a memory to view details</p>
             </div>
           )}
         </div>
       </div>
-      <style>{`
-        .nxs-spin { animation: nxsSpin 0.8s linear infinite; }
-        @keyframes nxsSpin { to { transform: rotate(360deg); } }
-      `}</style>
     </div>
   );
 }

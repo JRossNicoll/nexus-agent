@@ -10,6 +10,9 @@ import {
   searchMemoriesByText,
   getRecentConversations,
   reinforceMemory,
+  getFirstMessageFlag,
+  setFirstMessageFlag,
+  getAllStructuredMemory,
 } from '../memory/database.js';
 import { getToolDefinitions } from '../tools/index.js';
 import { ProactiveWorker } from '../proactive/index.js';
@@ -222,6 +225,31 @@ async function handleChat(
 
   // Build system prompt
   let systemPrompt = `You are Nexus, a personal AI assistant. You are knowledgeable, helpful, and proactive.`;
+
+  // First-message experience: inject onboarding context into the system prompt
+  const isFirstMessage = (request as any).first_message === true || getFirstMessageFlag();
+  if (isFirstMessage) {
+    const structured = getAllStructuredMemory();
+    const userName = structured.find(s => s.key === 'user.name')?.value;
+    const userWork = structured.find(s => s.key === 'user.work')?.value;
+    const userGoals = structured.find(s => s.key === 'user.goals')?.value;
+    const userGoodDay = structured.find(s => s.key === 'user.goodDay')?.value;
+    systemPrompt += `\n\nIMPORTANT — This is the user's FIRST message after completing onboarding. You must:
+1. Answer their question thoroughly
+2. Weave in specific details from what they shared during onboarding — NOT as a list, naturally woven into the response
+3. End with one proactive observation that makes the user feel understood
+
+Here is what they told you during onboarding:
+- Name: ${userName || 'unknown'}
+- Work: ${userWork || 'not shared'}
+- Goals: ${userGoals || 'not shared'}
+- What a good day looks like: ${userGoodDay || 'not shared'}
+
+Reference these details naturally in your response. Do NOT just repeat them back as a list.`;
+
+    // Clear the flag after injecting
+    setFirstMessageFlag(false);
+  }
 
   if (relevantMemories.length > 0) {
     systemPrompt += `\n\nRelevant memories:\n${relevantMemories.map(m => `- ${m.content}`).join('\n')}`;

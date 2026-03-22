@@ -30,7 +30,12 @@ interface TraceStep {
   timestamp: number;
 }
 
-export default function ChatView() {
+interface ChatViewProps {
+  pendingMessage?: string | null;
+  onPendingConsumed?: () => void;
+}
+
+export default function ChatView({ pendingMessage, onPendingConsumed }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -129,6 +134,29 @@ export default function ChatView() {
     return () => { unsubConnect(); unsubDisconnect(); unsubHello(); unsubStream(); unsubDone(); unsubError(); unsubToolCall(); unsubProactive(); unsubTrace(); };
   }, [scrollToBottom]);
 
+
+  // First message flag — inject onboarding context into first response
+  const [isFirstMessage, setIsFirstMessage] = useState(false);
+  useEffect(() => {
+    fetch((process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:18799") + "/api/v1/first-message-flag")
+      .then(r => r.json())
+      .then(d => { if (d.firstMessage) setIsFirstMessage(true); })
+      .catch(() => {});
+  }, []);
+
+  // Handle pending message from HomeScreen
+  useEffect(() => {
+    if (pendingMessage && connected && !isStreaming) {
+      setMessages(prev => [...prev, { id: String(Date.now()), role: "user", content: pendingMessage, timestamp: Date.now() }]);
+      setIsStreaming(true);
+      setTraceSteps([]);
+      setTraceCollapsed(false);
+      nexusWS.sendChat(pendingMessage);
+      onPendingConsumed?.();
+      scrollToBottom();
+    }
+  }, [pendingMessage, connected, isStreaming, onPendingConsumed, scrollToBottom]);
+
   const sendMessage = () => {
     const trimmed = input.trim();
     if (!trimmed || isStreaming) return;
@@ -136,7 +164,13 @@ export default function ChatView() {
     setIsStreaming(true);
     setTraceSteps([]);
     setTraceCollapsed(false);
-    nexusWS.sendChat(trimmed);
+    // If this is the first message, notify gateway to include onboarding context
+    if (isFirstMessage) {
+      nexusWS.send({ type: 'chat', payload: { message: trimmed, channel: 'web', first_message: true } });
+      setIsFirstMessage(false);
+    } else {
+      nexusWS.sendChat(trimmed);
+    }
     setInput("");
     inputRef.current?.focus();
     scrollToBottom();

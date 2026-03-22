@@ -1,38 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-
-const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:18799";
-
-interface ActivityItem {
-  id: string;
-  type: string;
-  content: string;
-  timestamp: string;
-  channel?: string;
-  metadata?: Record<string, unknown>;
-}
+import { useState } from "react";
+import { useActivities } from "@/lib/hooks";
 
 export default function ActivityView() {
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const { data: activities = [], isLoading: loading } = useActivities(filter);
 
-  const fetchActivities = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${GATEWAY}/api/v1/activity?limit=50`);
-      if (res.ok) {
-        const data = await res.json();
-        setActivities(Array.isArray(data) ? data : (data.activities || []));
-      }
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { fetchActivities(); }, [fetchActivities]);
-
-  const filtered = filter === "all" ? activities : activities.filter(a => a.type === filter);
+  const filtered = filter === "all" ? activities : activities.filter((a: any) => a.type === filter);
 
   const typeIcon = (type: string) => {
     switch (type) {
@@ -80,7 +55,7 @@ export default function ActivityView() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {filtered.map(item => (
+            {filtered.map((item: any) => (
               <div key={item.id} style={{
                 display: "flex", gap: 12, padding: "10px 12px",
                 borderRadius: "var(--r-sm)", transition: "background 0.1s",

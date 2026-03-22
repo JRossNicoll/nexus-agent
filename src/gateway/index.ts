@@ -34,10 +34,13 @@ async function main(): Promise<void> {
   const providerManager = new ProviderManager(config);
   console.log(`Provider: ${config.provider.primary} (fallback: ${config.provider.fallback})`);
 
-  // Initialize skill manager
+  // Initialize skill manager (lazy loading — skills loaded on first access, not startup)
   const skillManager = new SkillManager();
-  skillManager.loadSkills();
-  console.log(`Skills loaded: ${skillManager.getAllSkills().length}`);
+  // Defer skill loading to avoid blocking startup
+  process.nextTick(() => {
+    skillManager.loadSkills();
+    console.log(`Skills loaded: ${skillManager.getAllSkills().length}`);
+  });
 
   // Start file watcher for skills
   skillManager.startWatching(() => {

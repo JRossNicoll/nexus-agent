@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useHealth, useProviderSettings } from "@/lib/hooks";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:18799";
 
@@ -11,19 +12,31 @@ interface ProviderConfig {
 }
 
 export default function SettingsView() {
+  const { data: healthData } = useHealth();
+  const { data: providerData } = useProviderSettings();
+
   const [provider, setProvider] = useState<ProviderConfig | null>(null);
   const [telegramToken, setTelegramToken] = useState("");
   const [telegramConnected, setTelegramConnected] = useState(false);
   const [proactiveEnabled, setProactiveEnabled] = useState(true);
   const [proactiveInterval, setProactiveInterval] = useState(30);
   const [saving, setSaving] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; latency?: number; error?: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  // Sync React Query data into local state
+  useEffect(() => {
+    if (healthData?.provider) {
+      setProvider(prev => prev ?? { provider: healthData.provider.primary || healthData.provider, model: healthData.model || "", api_key_set: true });
+      if (healthData.telegram_connected) setTelegramConnected(true);
+    }
+  }, [healthData]);
 
   useEffect(() => {
-    fetch(`${GATEWAY}/health`).then(r => r.json()).then(data => {
-      if (data.provider) setProvider({ provider: data.provider, model: data.model || "", api_key_set: true });
-      if (data.telegram_connected) setTelegramConnected(true);
-    }).catch(() => {});
-  }, []);
+    if (providerData?.provider) {
+      setProvider(prev => prev ?? { provider: providerData.provider, model: providerData.model || "", api_key_set: providerData.hasKey ?? true });
+    }
+  }, [providerData]);
 
   const saveProvider = async (key: string, prov: string, model: string) => {
     setSaving(true);
@@ -35,6 +48,28 @@ export default function SettingsView() {
       setProvider({ provider: prov, model, api_key_set: true });
     } catch { /* ignore */ }
     finally { setSaving(false); }
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    const start = Date.now();
+    try {
+      const res = await fetch(`${GATEWAY}/api/providers/test`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      const latency = Date.now() - start;
+      if (data.success) {
+        setTestResult({ success: true, latency });
+      } else {
+        setTestResult({ success: false, error: data.error || "Failed" });
+      }
+    } catch (e: any) {
+      setTestResult({ success: false, error: e.message || "Connection failed" });
+    }
+    finally { setTesting(false); }
   };
 
   const saveTelegram = async () => {
@@ -114,12 +149,23 @@ export default function SettingsView() {
             <input type="password" placeholder={provider?.api_key_set ? "Key is set" : "Enter API key"} style={inputStyle}
               onBlur={e => { if (e.target.value && provider) saveProvider(e.target.value, provider.provider, provider.model); }} />
           </div>
-          {provider?.api_key_set && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#5ec26a" }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#5ec26a" }} />
-              Connected
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {provider?.api_key_set && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#5ec26a" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#5ec26a" }} />
+                Connected
+              </div>
+            )}
+            <button onClick={testConnection} disabled={testing}
+              style={{ padding: "6px 14px", background: "var(--bg-raised)", color: "var(--text-2)", border: "1px solid var(--border)", borderRadius: "var(--r-sm)", fontSize: 12, cursor: "pointer" }}>
+              {testing ? "Testing..." : "Test connection"}
+            </button>
+            {testResult && (
+              <span style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: testResult.success ? "#5ec26a" : "#eb645a" }}>
+                {testResult.success ? `Connected · ${testResult.latency}ms` : `Failed — ${testResult.error}`}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Channels */}

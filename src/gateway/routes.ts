@@ -37,6 +37,8 @@ import {
   getSkillExecutions,
   createSkillExecutionsTable,
   reinforceMemory,
+  getFirstMessageFlag,
+  setFirstMessageFlag,
 } from '../memory/database.js';
 import bcrypt from 'bcryptjs';
 import { getConnectedClientsCount, broadcastToClients } from './websocket.js';
@@ -95,6 +97,38 @@ export function setupRoutes(
       role: m.role as 'system' | 'user' | 'assistant',
       content: m.content,
     }));
+
+    // First-message experience: inject onboarding context into system prompt for REST API too
+    if (getFirstMessageFlag()) {
+      const structured = getAllStructuredMemory();
+      const userName = structured.find(s => s.key === 'user.name')?.value;
+      const userWork = structured.find(s => s.key === 'user.work')?.value;
+      const userGoals = structured.find(s => s.key === 'user.goals')?.value;
+      const userGoodDay = structured.find(s => s.key === 'user.goodDay')?.value;
+      const addendum = `\n\nIMPORTANT — This is the user's FIRST message after completing onboarding. You must:
+1. Answer their question thoroughly
+2. Weave in specific details from what they shared during onboarding — NOT as a list, naturally woven into the response
+3. End with one proactive observation that makes the user feel understood
+
+Here is what they told you during onboarding:
+- Name: ${userName || 'unknown'}
+- Work: ${userWork || 'not shared'}
+- Goals: ${userGoals || 'not shared'}
+- What a good day looks like: ${userGoodDay || 'not shared'}
+
+Reference these details naturally in your response. Do NOT just repeat them back as a list.`;
+
+      // Prepend system message with onboarding context
+      const hasSystem = messages.some(m => m.role === 'system');
+      if (hasSystem) {
+        const sysMsg = messages.find(m => m.role === 'system');
+        if (sysMsg) sysMsg.content += addendum;
+      } else {
+        messages.unshift({ role: 'system', content: `You are Nexus, a personal AI assistant.${addendum}` });
+      }
+
+      setFirstMessageFlag(false);
+    }
 
     // Store user message
     const lastUserMsg = body.messages.filter(m => m.role === 'user').pop();
@@ -756,6 +790,9 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     // Save user name
     setOnboardingComplete(body.userName);
 
+    // Set first-message flag so the first chat response references onboarding context
+    setFirstMessageFlag(true);
+
     // Store user info in structured memory
     setStructuredMemory({
       key: 'user.name',
@@ -882,6 +919,17 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     }
   });
 
+
+
+  // First-message flag endpoint
+  app.get('/api/v1/first-message-flag', async () => {
+    return { firstMessage: getFirstMessageFlag() };
+  });
+
+  app.post('/api/v1/first-message-flag/clear', async () => {
+    setFirstMessageFlag(false);
+    return { cleared: true };
+  });
 
   // === Settings API (for SettingsView) ===
 
