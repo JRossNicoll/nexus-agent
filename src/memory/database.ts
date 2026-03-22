@@ -243,10 +243,58 @@ export function updateMemoryAccess(id: string): void {
 
 export function searchMemoriesByText(query: string, limit = 10): SemanticMemory[] {
   const database = getDatabase();
-  const rows = database.prepare(`
+  // Enhanced search: split query into words and score by word overlap
+  // This provides better results than simple LIKE for multi-word queries
+  const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+
+  if (queryWords.length === 0) {
+    const rows = database.prepare(`
+      SELECT * FROM memories ORDER BY created_at DESC LIMIT ?
+    `).all(limit) as Array<Record<string, unknown>>;
+    return rows.map(rowToSemanticMemory);
+  }
+
+  // First try: exact substring match (fast path)
+  const exactRows = database.prepare(`
     SELECT * FROM memories WHERE content LIKE ? ORDER BY created_at DESC LIMIT ?
   `).all(`%${query}%`, limit) as Array<Record<string, unknown>>;
-  return rows.map(rowToSemanticMemory);
+
+  if (exactRows.length >= limit) {
+    return exactRows.map(rowToSemanticMemory);
+  }
+
+  // Second pass: word-level scoring for broader matches
+  // Fetch more candidates and score them in JS
+  const allRows = database.prepare(`
+    SELECT * FROM memories ORDER BY created_at DESC LIMIT 500
+  `).all() as Array<Record<string, unknown>>;
+
+  const scored = allRows.map(row => {
+    const content = String(row.content || '').toLowerCase();
+    const tags = String(row.tags || '').toLowerCase();
+    let score = 0;
+
+    for (const word of queryWords) {
+      if (content.includes(word)) score += 2;
+      if (tags.includes(word)) score += 1;
+    }
+
+    // Boost for exact query match
+    if (content.includes(query.toLowerCase())) score += 5;
+
+    // Boost for recency
+    const age = Date.now() - Number(row.created_at || 0);
+    const recencyBoost = Math.max(0, 1 - age / (30 * 24 * 60 * 60 * 1000)); // 30 day window
+    score += recencyBoost * 0.5;
+
+    return { row, score };
+  });
+
+  // Sort by score descending, filter out zero-score results
+  scored.sort((a, b) => b.score - a.score);
+  const results = scored.filter(s => s.score > 0).slice(0, limit);
+
+  return results.map(s => rowToSemanticMemory(s.row));
 }
 
 // Confidence decay: reduce confidence for old, rarely accessed memories

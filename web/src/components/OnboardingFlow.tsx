@@ -209,7 +209,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const steps = ["Welcome", "Provider", "Channels", "About You", "Ready"];
 
   return (
-    <div className="min-h-screen bg-surface-0 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4">
       <div className="w-full max-w-xl">
         {/* Progress bar */}
         <div className="flex items-center gap-2 mb-8">
@@ -217,26 +217,26 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             <div key={label} className="flex items-center gap-2 flex-1">
               <div className={`
                 w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-300
-                ${i < step ? "bg-indigo-500 text-white" :
-                  i === step ? "bg-indigo-500/20 text-indigo-400 ring-2 ring-indigo-500/40" :
-                  "bg-surface-2 text-gray-600"}
+                ${i < step ? "bg-[var(--accent)] text-white" :
+                  i === step ? "bg-[var(--accent)]/20 text-[var(--accent)] ring-2 ring-[var(--accent)]/40" :
+                  "bg-[var(--bg-surface)] text-gray-600"}
               `}>
                 {i < step ? <Check className="w-3.5 h-3.5" /> : i + 1}
               </div>
               {i < steps.length - 1 && (
-                <div className={`flex-1 h-px transition-colors duration-300 ${i < step ? "bg-indigo-500/50" : "bg-white/[0.06]"}`} />
+                <div className={`flex-1 h-px transition-colors duration-300 ${i < step ? "bg-[var(--accent)]/50" : "bg-white/[0.06]"}`} />
               )}
             </div>
           ))}
         </div>
 
         {/* Card */}
-        <div className="bg-surface-1 rounded-2xl border border-white/[0.06] overflow-hidden">
+        <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.06] overflow-hidden">
           {/* Screen 1: Welcome */}
           {step === 0 && (
             <div className="p-8">
               <div className="flex justify-center mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 animate-pulse">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent)] flex items-center justify-center shadow-lg shadow-[var(--accent)]/20 animate-pulse">
                   <Sparkles className="w-8 h-8 text-white" />
                 </div>
               </div>
@@ -251,7 +251,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   value={data.userName}
                   onChange={e => setData(d => ({ ...d, userName: e.target.value }))}
                   placeholder="Your name"
-                  className="w-full bg-surface-2 border border-white/[0.06] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/40 transition-all"
+                  className="w-full bg-[var(--bg-surface)] border border-white/[0.06] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]/40 transition-all"
                   autoFocus
                   onKeyDown={e => { if (e.key === "Enter" && canProceed()) nextStep(); }}
                 />
@@ -263,7 +263,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           {step === 1 && (
             <div className="p-8">
               <div className="flex items-center gap-3 mb-6">
-                <Brain className="w-6 h-6 text-indigo-400" />
+                <Brain className="w-6 h-6 text-[var(--accent)]" />
                 <h2 className="text-xl font-bold text-white">Choose your brain</h2>
               </div>
               <p className="text-gray-400 text-sm mb-6">
@@ -282,8 +282,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onClick={() => setData(d => ({ ...d, provider: p.id, keyName: p.keyName, apiKey: "", keyTested: false }))}
                     className={`w-full text-left p-4 rounded-xl border transition-all ${
                       data.provider === p.id
-                        ? "bg-indigo-500/10 border-indigo-500/40 ring-1 ring-indigo-500/20"
-                        : "bg-surface-2 border-white/[0.06] hover:border-white/[0.12]"
+                        ? "bg-[var(--accent)]/10 border-indigo-500/40 ring-1 ring-[var(--accent)]/20"
+                        : "bg-[var(--bg-surface)] border-white/[0.06] hover:border-white/[0.12]"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -292,7 +292,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                         <div className="text-xs text-gray-500 mt-0.5">{p.desc}</div>
                       </div>
                       {p.badge && (
-                        <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">{p.badge}</span>
+                        <span className="text-[10px] bg-[var(--accent)]/20 text-[var(--accent)] px-2 py-0.5 rounded-full">{p.badge}</span>
                       )}
                     </div>
                   </button>
@@ -305,13 +305,13 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   <label className="text-xs text-gray-500 uppercase tracking-wider">API Key</label>
                   {data.provider === "anthropic" && (
                     <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer"
-                      className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                      className="text-xs text-[var(--accent)] hover:text-[var(--accent)] flex items-center gap-1">
                       Get a key <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                   {data.provider === "openai" && (
                     <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer"
-                      className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                      className="text-xs text-[var(--accent)] hover:text-[var(--accent)] flex items-center gap-1">
                       Get a key <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -322,13 +322,13 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     value={data.apiKey}
                     onChange={e => setData(d => ({ ...d, apiKey: e.target.value, keyTested: false }))}
                     placeholder={`sk-...`}
-                    className="flex-1 bg-surface-2 border border-white/[0.06] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all font-mono"
+                    className="flex-1 bg-[var(--bg-surface)] border border-white/[0.06] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 transition-all font-mono"
                     onKeyDown={e => { if (e.key === "Enter" && data.apiKey.trim()) handleTestKey(); }}
                   />
                   <button
                     onClick={handleTestKey}
                     disabled={testing || !data.apiKey.trim()}
-                    className="px-5 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:bg-surface-3 disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+                    className="px-5 py-3 bg-[var(--accent)] hover:bg-indigo-600 disabled:bg-[var(--bg-raised)] disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
                   >
                     {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Test"}
                   </button>
@@ -364,35 +364,35 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           {step === 2 && (
             <div className="p-8">
               <div className="flex items-center gap-3 mb-6">
-                <MessageSquare className="w-6 h-6 text-indigo-400" />
+                <MessageSquare className="w-6 h-6 text-[var(--accent)]" />
                 <h2 className="text-xl font-bold text-white">Connect Telegram</h2>
               </div>
               <p className="text-gray-400 text-sm mb-6">
                 Connect Telegram so NEXUS can reach you outside the browser. This is optional.
               </p>
 
-              <div className="bg-surface-2 rounded-xl p-5 border border-white/[0.06] mb-6">
+              <div className="bg-[var(--bg-surface)] rounded-xl p-5 border border-white/[0.06] mb-6">
                 <h3 className="text-sm font-medium text-white mb-3">Setup Instructions</h3>
                 <ol className="space-y-3 text-sm text-gray-400">
                   <li className="flex gap-3">
-                    <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                    <span className="w-5 h-5 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
                     <span>Open Telegram and search for <span className="text-white font-medium">@BotFather</span></span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                    <span>Send the message <code className="bg-surface-3 px-1.5 py-0.5 rounded text-indigo-300 text-xs">/newbot</code></span>
+                    <span className="w-5 h-5 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                    <span>Send the message <code className="bg-[var(--bg-raised)] px-1.5 py-0.5 rounded text-[var(--accent)] text-xs">/newbot</code></span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                    <span className="w-5 h-5 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
                     <span>Choose a name (e.g. <span className="text-white">My NEXUS Bot</span>) and a username (e.g. <span className="text-white">mynexus_bot</span>)</span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 text-xs flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                    <span className="w-5 h-5 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
                     <span>BotFather will give you a token. Paste it below.</span>
                   </li>
                 </ol>
                 <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 mt-4 text-xs text-indigo-400 hover:text-indigo-300">
+                  className="inline-flex items-center gap-1.5 mt-4 text-xs text-[var(--accent)] hover:text-[var(--accent)]">
                   Open BotFather in Telegram <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
@@ -404,7 +404,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   value={data.telegramToken}
                   onChange={e => setData(d => ({ ...d, telegramToken: e.target.value }))}
                   placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
-                  className="w-full bg-surface-2 border border-white/[0.06] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all font-mono"
+                  className="w-full bg-[var(--bg-surface)] border border-white/[0.06] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 transition-all font-mono"
                 />
               </div>
             </div>
@@ -414,7 +414,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           {step === 3 && (
             <div className="p-8">
               <div className="flex items-center gap-3 mb-6">
-                <User className="w-6 h-6 text-indigo-400" />
+                <User className="w-6 h-6 text-[var(--accent)]" />
                 <h2 className="text-xl font-bold text-white">Tell me about yourself</h2>
               </div>
               <p className="text-gray-400 text-sm mb-6">
@@ -429,7 +429,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onChange={e => setData(d => ({ ...d, aboutWork: e.target.value }))}
                     placeholder="I'm a software engineer at a fintech startup..."
                     rows={2}
-                    className="w-full bg-surface-2 border border-white/[0.06] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all resize-none"
+                    className="w-full bg-[var(--bg-surface)] border border-white/[0.06] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 transition-all resize-none"
                   />
                 </div>
                 <div>
@@ -439,7 +439,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onChange={e => setData(d => ({ ...d, aboutGoals: e.target.value }))}
                     placeholder="I want to improve my Rust skills and ship side projects faster..."
                     rows={2}
-                    className="w-full bg-surface-2 border border-white/[0.06] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all resize-none"
+                    className="w-full bg-[var(--bg-surface)] border border-white/[0.06] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 transition-all resize-none"
                   />
                 </div>
                 <div>
@@ -449,7 +449,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onChange={e => setData(d => ({ ...d, aboutGoodDay: e.target.value }))}
                     placeholder="A morning run, deep focus time on a hard problem, a good conversation..."
                     rows={2}
-                    className="w-full bg-surface-2 border border-white/[0.06] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all resize-none"
+                    className="w-full bg-[var(--bg-surface)] border border-white/[0.06] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 transition-all resize-none"
                   />
                 </div>
               </div>
@@ -472,9 +472,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </p>
 
               {/* Mini memory graph */}
-              <div className="bg-surface-2 rounded-xl border border-white/[0.06] p-3 mb-5">
+              <div className="bg-[var(--bg-surface)] rounded-xl border border-white/[0.06] p-3 mb-5">
                 <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />
                   <span className="text-xs text-gray-400">Your Memory Graph</span>
                 </div>
                 <svg ref={graphRef} className="w-full" style={{ height: 180 }} />
@@ -482,15 +482,15 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
               {/* Welcome message from agent */}
               {loadingWelcome ? (
-                <div className="bg-surface-2 rounded-xl p-4 border border-white/[0.06] mb-5 flex items-center gap-3">
-                  <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                <div className="bg-[var(--bg-surface)] rounded-xl p-4 border border-white/[0.06] mb-5 flex items-center gap-3">
+                  <Loader2 className="w-4 h-4 text-[var(--accent)] animate-spin" />
                   <span className="text-sm text-gray-400">NEXUS is preparing a message for you...</span>
                 </div>
               ) : welcomeMsg && (
-                <div className="bg-surface-2 rounded-xl p-4 border border-white/[0.06] mb-5">
+                <div className="bg-[var(--bg-surface)] rounded-xl p-4 border border-white/[0.06] mb-5">
                   <div className="flex items-start gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Bot className="w-4 h-4 text-indigo-400" />
+                    <div className="w-7 h-7 rounded-lg bg-[var(--accent)]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Bot className="w-4 h-4 text-[var(--accent)]" />
                     </div>
                     <p className="text-sm text-gray-300 leading-relaxed">{welcomeMsg}</p>
                   </div>
@@ -498,7 +498,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               )}
 
               {/* Pre-filled chat message */}
-              <div className="bg-surface-2 rounded-xl border border-white/[0.06] p-3 flex items-center gap-3">
+              <div className="bg-[var(--bg-surface)] rounded-xl border border-white/[0.06] p-3 flex items-center gap-3">
                 <input
                   type="text"
                   value="What can you help me with?"
@@ -507,7 +507,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 />
                 <button
                   onClick={onComplete}
-                  className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-[var(--accent)] hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2"
                 >
                   Send <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -517,7 +517,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
           {/* Navigation footer */}
           {step < 4 && (
-            <div className="px-8 py-5 border-t border-white/[0.06] flex items-center justify-between bg-surface-1/50">
+            <div className="px-8 py-5 border-t border-white/[0.06] flex items-center justify-between bg-[var(--bg-surface)]">
               <div>
                 {step > 0 && (
                   <button onClick={prevStep} className="text-sm text-gray-500 hover:text-gray-300 flex items-center gap-1.5 transition-colors">
@@ -534,7 +534,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <button
                   onClick={nextStep}
                   disabled={!canProceed() || submitting}
-                  className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:bg-surface-3 disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+                  className="px-5 py-2.5 bg-[var(--accent)] hover:bg-indigo-600 disabled:bg-[var(--bg-raised)] disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
                 >
                   {submitting ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Setting up...</>

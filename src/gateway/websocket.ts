@@ -148,6 +148,16 @@ async function handleChat(
   const channel = (request.channel ?? 'web') as 'web';
   const startTime = Date.now();
 
+  // Helper to send trace steps
+  const trace = (step: string, status: 'active' | 'done' | 'error') => {
+    sendToClient(client, {
+      type: 'execution-trace',
+      id: sessionId,
+      payload: { step, status },
+      timestamp: Date.now(),
+    });
+  };
+
   // Store user message
   insertConversation({
     session_id: sessionId,
@@ -161,19 +171,15 @@ async function handleChat(
     channel,
   });
 
-  // Send execution trace: starting
-  sendToClient(client, {
-    type: 'execution-trace',
-    id: sessionId,
-    payload: { step: 'Analyzing your message...', status: 'active' },
-    timestamp: Date.now(),
-  });
+  // Dynamic trace: understanding the message
+  trace('Understanding your message...', 'active');
 
   // Check for slash commands
   if (request.message.startsWith('/')) {
     const skillName = request.message.slice(1).split(' ')[0];
     const skill = skillManager.getSkill(skillName);
     if (skill) {
+      trace(`Running skill: ${skillName}`, 'active');
       sendToClient(client, {
         type: 'tool-call',
         payload: { tool: 'skill_run', input: { name: skillName } },
@@ -184,26 +190,20 @@ async function handleChat(
 
   // Check for keyword-triggered skills
   const matchedSkills = skillManager.getSkillsByKeyword(request.message);
+  if (matchedSkills.length > 0) {
+    trace(`Matched ${matchedSkills.length} skill${matchedSkills.length > 1 ? 's' : ''}: ${matchedSkills.map(s => s.config.name).join(', ')}`, 'active');
+  }
+
+  trace('Understanding your message...', 'done');
 
   // Retrieve relevant memories for context
-  sendToClient(client, {
-    type: 'execution-trace',
-    id: sessionId,
-    payload: { step: 'Searching memories for relevant context...', status: 'active' },
-    timestamp: Date.now(),
-  });
-
+  trace('Searching your memories...', 'active');
   const relevantMemories = searchMemoriesByText(request.message, 10);
 
   // Reinforce and pulse memories that are being used
   const usedMemoryIds: string[] = [];
   if (relevantMemories.length > 0) {
-    sendToClient(client, {
-      type: 'execution-trace',
-      id: sessionId,
-      payload: { step: `Found ${relevantMemories.length} relevant memories`, status: 'done' },
-      timestamp: Date.now(),
-    });
+    trace(`Found ${relevantMemories.length} relevant memories`, 'done');
 
     for (const mem of relevantMemories.slice(0, 5)) {
       reinforceMemory(mem.id);
@@ -216,6 +216,8 @@ async function handleChat(
       payload: { memoryIds: usedMemoryIds },
       timestamp: Date.now(),
     });
+  } else {
+    trace('No matching memories found', 'done');
   }
 
   // Build system prompt
@@ -230,12 +232,14 @@ async function handleChat(
   }
 
   // Get recent conversation context
+  trace('Loading conversation history...', 'active');
   const recentMessages = getRecentConversations(10)
     .reverse()
     .map(m => ({
       role: m.role as 'system' | 'user' | 'assistant',
       content: m.content,
     }));
+  trace('Loading conversation history...', 'done');
 
   const messages = [
     { role: 'system' as const, content: systemPrompt },
@@ -244,12 +248,8 @@ async function handleChat(
   ];
 
   // Send execution trace: calling LLM
-  sendToClient(client, {
-    type: 'execution-trace',
-    id: sessionId,
-    payload: { step: `Generating response with ${config.provider.primary}...`, status: 'active' },
-    timestamp: Date.now(),
-  });
+  const providerName = config.provider.primary.split('/')[0] || config.provider.primary;
+  trace(`Thinking with ${providerName}...`, 'active');
 
   try {
     let fullResponse = '';
@@ -270,12 +270,7 @@ async function handleChat(
     const latency = Date.now() - startTime;
 
     // Send execution trace: done
-    sendToClient(client, {
-      type: 'execution-trace',
-      id: sessionId,
-      payload: { step: `Response generated in ${latency}ms`, status: 'done' },
-      timestamp: Date.now(),
-    });
+    trace(`Response ready (${(latency / 1000).toFixed(1)}s)`, 'done');
 
     // Store assistant response
     insertConversation({

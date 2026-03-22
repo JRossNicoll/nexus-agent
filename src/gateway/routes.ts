@@ -3,6 +3,7 @@ import type { NexusConfig, HealthResponse } from '../types/index.js';
 import { ProviderManager } from '../providers/index.js';
 import { SkillManager } from '../skills/index.js';
 import {
+  getDatabase,
   getMemoryStats,
   getMemories,
   getMemoryById,
@@ -881,7 +882,162 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     }
   });
 
-  // Skill suggestion based on conversation patterns
+
+  // === Settings API (for SettingsView) ===
+
+  // Get current provider settings
+  app.get('/api/v1/settings/provider', async () => {
+    return {
+      provider: config.provider.primary,
+      model: config.provider.fallback || config.provider.primary,
+      hasKey: Object.values(config.provider.apiKeys).some(k => k && k.length > 5),
+    };
+  });
+
+  // Update provider settings
+  app.post('/api/v1/settings/provider', async (request) => {
+    const body = request.body as { provider?: string; model?: string; apiKey?: string };
+    if (body.provider) config.provider.primary = body.provider;
+    if (body.model) config.provider.fallback = body.model;
+    if (body.apiKey) {
+      const keyName = (body.provider || config.provider.primary).split('/')[0] || 'default';
+      config.provider.apiKeys[keyName] = body.apiKey;
+    }
+    saveConfig(config);
+    return { success: true };
+  });
+
+  // Get Telegram settings
+  app.get('/api/v1/settings/telegram', async () => {
+    return {
+      enabled: !!config.channels.telegram?.enabled,
+      connected: !!config.channels.telegram?.botToken,
+    };
+  });
+
+  // Update Telegram settings
+  app.post('/api/v1/settings/telegram', async (request) => {
+    const body = request.body as { botToken?: string; enabled?: boolean };
+    if (!config.channels.telegram) {
+      config.channels.telegram = { enabled: false, botToken: '' };
+    }
+    if (body.botToken !== undefined) config.channels.telegram.botToken = body.botToken;
+    if (body.enabled !== undefined) config.channels.telegram.enabled = body.enabled;
+    saveConfig(config);
+    return { success: true };
+  });
+
+  // Get proactive settings
+  app.get('/api/v1/settings/proactive', async () => {
+    if (proactiveWorker) {
+      const workerConfig = proactiveWorker.getConfig();
+      return {
+        enabled: !!workerConfig.enabled,
+        interval: workerConfig.interval || 60,
+      };
+    }
+    return { enabled: false, interval: 60 };
+  });
+
+  // Update proactive settings
+  app.post('/api/v1/settings/proactive', async (request) => {
+    const body = request.body as { enabled?: boolean; interval?: number };
+    // Store in structured memory for persistence
+    if (body.enabled !== undefined) {
+      setStructuredMemory({
+        key: 'settings.proactive.enabled',
+        value: String(body.enabled),
+        type: 'string',
+        category: 'preferences',
+        updated_at: Date.now(),
+        source: 'settings',
+      });
+    }
+    if (body.interval !== undefined) {
+      setStructuredMemory({
+        key: 'settings.proactive.interval',
+        value: String(body.interval),
+        type: 'number',
+        category: 'preferences',
+        updated_at: Date.now(),
+        source: 'settings',
+      });
+    }
+    return { success: true };
+  });
+
+  // Danger zone: reset all data
+  app.post('/api/v1/settings/reset', async () => {
+    const database = getDatabase();
+    database.exec('DELETE FROM memories');
+    database.exec('DELETE FROM conversations');
+    database.exec('DELETE FROM structured_memory');
+    database.exec('DELETE FROM activity_log');
+    database.exec('DELETE FROM tool_calls');
+    database.exec('DELETE FROM pending_tasks');
+    try { database.exec('DELETE FROM skill_executions'); } catch { /* table may not exist */ }
+    return { success: true, message: 'All data has been reset.' };
+  });
+
+  // Activity endpoint (for ActivityView)
+  app.get('/api/v1/activity', async (request) => {
+    const query = request.query as { limit?: string; type?: string };
+    const limit = parseInt(query.limit ?? '50', 10);
+    const typeFilter = query.type;
+    const activities = getActivities(limit, 0, typeFilter);
+    return activities;
+  });
+
+  // Memories endpoint (for MemoryView)
+  app.get('/api/v1/memories', async (request) => {
+    const query = request.query as { limit?: string; offset?: string; category?: string };
+    return getMemories(
+      parseInt(query.limit ?? '100', 10),
+      parseInt(query.offset ?? '0', 10),
+      query.category
+    );
+  });
+
+  // Memory health (for MemoryView stats)
+  app.get('/api/v1/memory/health', async () => {
+    return getMemoryHealth();
+  });
+
+  // Memory clusters (for MemoryView)
+  app.get('/api/v1/memory/clusters', async () => {
+    const graphData = getMemoryGraphData();
+    const clusters = autoClusterMemories(
+      graphData.nodes as Array<{ id: string; content: string; category: string }>,
+      graphData.edges
+    );
+    return clusters;
+  });
+
+  // Skills endpoint (for SkillsView)
+  app.get('/api/v1/skills', async () => {
+    const skills = skillManager.getAllSkills();
+    return skills.map(s => {
+      const executions = getSkillExecutions(s.config.name, 5);
+      return {
+        name: s.config.name,
+        description: s.config.description,
+        enabled: s.config.enabled,
+        triggers: s.config.triggers,
+        tools: s.config.tools,
+        lastRun: s.lastRun ?? (executions.length > 0 ? executions[0].timestamp : undefined),
+        executions,
+        hasNeverRun: executions.length === 0,
+      };
+    });
+  });
+
+  // Memories search (for CommandPalette)
+  app.get('/api/v1/memories/search', async (request) => {
+    const query = request.query as { q: string; limit?: string };
+    return searchMemoriesByText(query.q, parseInt(query.limit ?? '10', 10));
+  });
+
+    // Skill suggestion based on conversation patterns
   app.get('/api/skills/suggestions', async () => {
     const recent = getRecentConversations(50);
     if (recent.length < 5) {

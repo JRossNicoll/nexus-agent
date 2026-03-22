@@ -87,7 +87,7 @@ export default function ChatView() {
 
     const unsubError = nexusWS.on("chat-error", (msg: WSMessage) => {
       const payload = msg.payload as { error: string };
-      setMessages(prev => [...prev, { id: String(Date.now()), role: "system", content: `Error: ${payload.error}`, timestamp: Date.now() }]);
+      setMessages(prev => [...prev, { id: String(Date.now()), role: "system", content: `Something went wrong. Please try again.`, timestamp: Date.now() }]);
       setIsStreaming(false);
     });
 
@@ -169,7 +169,7 @@ export default function ChatView() {
         return (
           <div key={i} className="my-3 relative group">
             {lang && (
-              <div className="flex items-center justify-between px-4 py-1.5 bg-surface-3/50 rounded-t-lg border-b border-white/[0.04]">
+              <div className="flex items-center justify-between px-4 py-1.5 bg-[var(--bg-raised)] rounded-t-lg border-b border-white/[0.04]">
                 <span className="text-[11px] font-mono text-gray-500 uppercase tracking-wider">{lang}</span>
                 <button onClick={() => copyToClipboard(code, `code-${i}`)} className="p-1 rounded text-gray-500 hover:text-gray-300 transition-colors">
                   {copiedId === `code-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
@@ -181,7 +181,7 @@ export default function ChatView() {
             </pre>
             {!lang && (
               <button onClick={() => copyToClipboard(code, `code-${i}`)}
-                className="absolute top-2 right-2 p-1.5 rounded bg-surface-3/80 opacity-0 group-hover:opacity-100 transition-opacity">
+                className="absolute top-2 right-2 p-1.5 rounded bg-[var(--bg-raised)] opacity-0 group-hover:opacity-100 transition-opacity">
                 {copiedId === `code-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-gray-400" />}
               </button>
             )}
@@ -193,7 +193,7 @@ export default function ChatView() {
         <span key={i}>
           {inlineParts.map((ip, j) => {
             if (ip.startsWith("`") && ip.endsWith("`")) {
-              return <code key={j} className="px-1.5 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded text-[13px] text-indigo-300">{ip.slice(1, -1)}</code>;
+              return <code key={j} className="px-1.5 py-0.5 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded text-[13px] text-[var(--accent)]">{ip.slice(1, -1)}</code>;
             }
             return <span key={j}>{ip}</span>;
           })}
@@ -205,7 +205,7 @@ export default function ChatView() {
   return (
     <div className="flex flex-col h-full relative">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 h-12 border-b border-white/[0.06] glass">
+      <div style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-surface)", backdropFilter: "blur(12px)" }} className="flex items-center justify-between px-6 h-12">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-white">Chat</h1>
           <div className={cn("flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px]",
@@ -221,11 +221,11 @@ export default function ChatView() {
         {/* Execution Trace - shown above messages when active */}
         {traceSteps.length > 0 && isStreaming && !traceCollapsed && (
           <div className="max-w-4xl mx-auto mb-3 animate-fade-in">
-            <div className="bg-surface-2/80 backdrop-blur border border-white/[0.06] rounded-xl overflow-hidden">
+            <div className="bg-[var(--bg-surface)] backdrop-blur border border-white/[0.06] rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.04]">
                 <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <Cpu className="w-3.5 h-3.5 text-indigo-400" />
-                  <span className="font-medium text-indigo-300">Execution Trace</span>
+                  <Cpu className="w-3.5 h-3.5 text-[var(--accent)]" />
+                  <span className="font-medium text-[var(--accent)]">Execution Trace</span>
                 </div>
                 <button onClick={() => setTraceCollapsed(true)} className="text-gray-600 hover:text-gray-400 transition-colors">
                   <ChevronUp className="w-3.5 h-3.5" />
@@ -234,17 +234,17 @@ export default function ChatView() {
               <div className="px-3 py-2 space-y-1.5">
                 {traceSteps.map((step, i) => (
                   <div key={i} className={cn("flex items-center gap-2 text-xs transition-all duration-300",
-                    step.status === "active" ? "text-indigo-300" : step.status === "done" ? "text-gray-500" : "text-red-400")}>
+                    step.status === "active" ? "text-[var(--accent)]" : step.status === "done" ? "text-gray-500" : "text-red-400")}>
                     {step.status === "active" ? (
                       <div className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0">
                         {step.step.toLowerCase().includes("search") || step.step.toLowerCase().includes("memor") ? (
                           <Brain className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
                         ) : step.step.toLowerCase().includes("web") || step.step.toLowerCase().includes("generat") ? (
-                          <Globe className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                          <Globe className="w-3.5 h-3.5 text-[var(--accent)] animate-pulse" />
                         ) : step.step.toLowerCase().includes("analyz") ? (
                           <Search className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                         ) : (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent)]" />
                         )}
                       </div>
                     ) : step.status === "done" ? (
@@ -264,7 +264,7 @@ export default function ChatView() {
         {traceSteps.length > 0 && isStreaming && traceCollapsed && (
           <div className="max-w-4xl mx-auto mb-3">
             <button onClick={() => setTraceCollapsed(false)}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs text-indigo-400/80 bg-surface-2/50 border border-white/[0.04] rounded-lg hover:bg-surface-2 transition-colors">
+              className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--accent)]/80 bg-[var(--bg-surface)] border border-white/[0.04] rounded-lg hover:bg-[var(--bg-surface)] transition-colors">
               <Cpu className="w-3 h-3" />
               <span>{traceSteps.filter(s => s.status === "active").length} active step{traceSteps.filter(s => s.status === "active").length !== 1 ? "s" : ""}</span>
               <ChevronDown className="w-3 h-3" />
@@ -274,8 +274,8 @@ export default function ChatView() {
 
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center mb-5 shadow-lg shadow-indigo-500/10">
-              <Bot className="w-8 h-8 text-indigo-400" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent)]/10 flex items-center justify-center mb-5 shadow-lg shadow-[var(--accent)]/10">
+              <Bot className="w-8 h-8 text-[var(--accent)]" />
             </div>
             <h2 className="text-lg font-semibold text-white mb-1.5">Welcome to Nexus</h2>
             <p className="text-sm text-gray-500 max-w-md leading-relaxed">
@@ -288,31 +288,31 @@ export default function ChatView() {
           <div key={msg.id} className={cn("flex gap-3 animate-fade-in max-w-4xl mx-auto", msg.role === "user" ? "justify-end" : "justify-start")}>
             {msg.role !== "user" && (
               <div className={cn("flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5",
-                msg.role === "system" ? "bg-red-500/10" : "bg-indigo-500/15")}>
-                <Bot className={cn("w-4 h-4", msg.role === "system" ? "text-red-400" : "text-indigo-400")} />
+                msg.role === "system" ? "bg-red-500/10" : "bg-[var(--accent)]/15")}>
+                <Bot className={cn("w-4 h-4", msg.role === "system" ? "text-red-400" : "text-[var(--accent)]")} />
               </div>
             )}
             <div className={cn("max-w-2xl rounded-xl px-4 py-2.5",
-              msg.role === "user" ? "bg-indigo-500/15 text-white border border-indigo-500/20"
+              msg.role === "user" ? "bg-[var(--accent)]/15 text-white border border-[var(--accent)]/20"
                 : msg.role === "system" ? "bg-red-500/10 text-red-300 border border-red-500/20"
-                : "bg-surface-2 text-gray-200 border border-white/[0.04]")}>
+                : "bg-[var(--bg-surface)] text-gray-200 border border-white/[0.04]")}>
               <div className="text-sm leading-relaxed whitespace-pre-wrap">
                 {renderContent(msg.content)}
-                {msg.streaming && <span className="inline-block w-[2px] h-4 bg-indigo-400 typing-cursor ml-0.5 align-middle" />}
+                {msg.streaming && <span className="inline-block w-[2px] h-4 bg-[var(--accent)] typing-cursor ml-0.5 align-middle" />}
               </div>
               {/* Thinking dots */}
               {msg.streaming && !msg.content && (
                 <div className="flex items-center gap-1.5 py-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 thinking-dot" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 thinking-dot" style={{"animationDelay": "0.2s"}} />
-                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 thinking-dot" style={{"animationDelay": "0.4s"}} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] thinking-dot" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] thinking-dot" style={{"animationDelay": "0.2s"}} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] thinking-dot" style={{"animationDelay": "0.4s"}} />
                 </div>
               )}
               {/* Tool calls */}
               {msg.toolCalls && msg.toolCalls.length > 0 && (
                 <div className="mt-2.5 space-y-1.5">
                   {msg.toolCalls.map((tc, tIdx) => (
-                    <div key={tIdx} className="border border-white/[0.06] rounded-lg overflow-hidden bg-surface-1/50">
+                    <div key={tIdx} className="border border-white/[0.06] rounded-lg overflow-hidden bg-[var(--bg-surface)]">
                       <button onClick={() => toggleToolCall(idx, tIdx)}
                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:bg-white/[0.03] transition-colors">
                         <Zap className="w-3 h-3 text-amber-400" />
@@ -320,7 +320,7 @@ export default function ChatView() {
                         {tc.expanded ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
                       </button>
                       {tc.expanded && (
-                        <div className="px-3 py-2 bg-surface-1 text-xs font-mono text-gray-400 border-t border-white/[0.06]">
+                        <div className="px-3 py-2 bg-[var(--bg-surface)] text-xs font-mono text-gray-400 border-t border-white/[0.06]">
                           <div className="text-gray-600 mb-1 text-[10px] uppercase tracking-wider">Input</div>
                           <pre className="text-gray-300 whitespace-pre-wrap text-[11px]">{JSON.stringify(tc.input, null, 2)}</pre>
                           {tc.output && (<><div className="text-gray-600 mt-2 mb-1 text-[10px] uppercase tracking-wider">Output</div>
@@ -344,7 +344,7 @@ export default function ChatView() {
               </div>
             </div>
             {msg.role === "user" && (
-              <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-surface-3 flex items-center justify-center mt-0.5">
+              <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--bg-raised)] flex items-center justify-center mt-0.5">
                 <User className="w-4 h-4 text-gray-400" />
               </div>
             )}
@@ -357,26 +357,26 @@ export default function ChatView() {
       {showScrollBtn && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10">
           <button onClick={scrollToBottom}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-3/90 backdrop-blur border border-white/[0.1] rounded-full text-xs text-gray-300 hover:bg-surface-4 transition-colors shadow-lg">
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-raised)]/90 backdrop-blur border border-white/[0.1] rounded-full text-xs text-gray-300 hover:bg-[var(--bg-raised)] transition-colors shadow-lg">
             <ArrowDown className="w-3 h-3" /> New messages
           </button>
         </div>
       )}
 
       {/* Input */}
-      <div className="px-4 py-3 border-t border-white/[0.06] glass">
+      <div style={{ borderTop: "1px solid var(--border)", background: "var(--bg-surface)", backdropFilter: "blur(12px)" }} className="px-4 py-3">
         <div className="flex gap-2.5 items-end max-w-4xl mx-auto">
           <div className="flex-1 relative">
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
               placeholder="Message Nexus... (/ for commands)" rows={1}
-              className="w-full px-4 py-2.5 bg-surface-2 border border-white/[0.08] rounded-xl text-white placeholder-gray-600 text-sm resize-none focus:outline-none focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+              className="w-full px-4 py-2.5 bg-[var(--bg-surface)] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 text-sm resize-none focus:outline-none focus:border-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--accent)]/20 transition-all"
               style={{"minHeight": "42px", "maxHeight": "200px"}} />
           </div>
           <button onClick={sendMessage} disabled={!input.trim() || isStreaming}
             className={cn("flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200",
               input.trim() && !isStreaming
-                ? "bg-indigo-500 hover:bg-indigo-400 text-white shadow-lg shadow-indigo-500/25"
-                : "bg-surface-3 text-gray-600 cursor-not-allowed")}>
+                ? "bg-[var(--accent)] hover:bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/25"
+                : "bg-[var(--bg-raised)] text-gray-600 cursor-not-allowed")}>
             {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
         </div>
