@@ -57,10 +57,12 @@ export class SkillManager {
 
   private parseTriggers(raw: Array<Record<string, string>> | undefined): SkillTrigger[] {
     if (!raw || !Array.isArray(raw)) return [];
-    return raw.map(t => ({
-      cron: t.cron,
-      keyword: t.keyword,
-    }));
+    return raw.map(t => {
+      const trigger: SkillTrigger = {};
+      if (t.cron) trigger.cron = t.cron;
+      if (t.keyword) trigger.keyword = t.keyword;
+      return trigger;
+    });
   }
 
   startWatching(onReload?: () => void): void {
@@ -136,15 +138,41 @@ export class SkillManager {
 
   createSkill(name: string, content: string, config: Partial<SkillConfig>): string {
     const filePath = path.join(SKILLS_DIR, `${name}.md`);
+
+    // Strip markdown code fences if the LLM wrapped the output
+    let cleanContent = content;
+    const fenceMatch = cleanContent.match(/^```(?:markdown|yaml|md)?\s*\n([\s\S]*?)\n```\s*$/);
+    if (fenceMatch) {
+      cleanContent = fenceMatch[1];
+    }
+
+    // If the content already has YAML frontmatter, parse it to extract description/triggers
+    let parsedDescription = '';
+    let parsedTriggers: SkillTrigger[] = [];
+    let parsedTools: string[] = [];
+    let bodyContent = cleanContent;
+
+    try {
+      const { data, content: parsedBody } = matter(cleanContent);
+      if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+        parsedDescription = (data.description as string) ?? '';
+        parsedTriggers = this.parseTriggers(data.triggers as Array<Record<string, string>> | undefined);
+        parsedTools = Array.isArray(data.tools) ? (data.tools as string[]) : [];
+        bodyContent = parsedBody.trim();
+      }
+    } catch {
+      // Content doesn't have valid frontmatter, use as-is
+    }
+
     const frontmatter: Record<string, unknown> = {
       name,
-      description: config.description ?? '',
-      triggers: config.triggers ?? [],
-      tools: config.tools ?? [],
+      description: (config.description && config.description.length > 0) ? config.description : parsedDescription,
+      triggers: (config.triggers && config.triggers.length > 0) ? config.triggers : parsedTriggers,
+      tools: (config.tools && config.tools.length > 0) ? config.tools : parsedTools,
       enabled: config.enabled !== false,
     };
 
-    const md = matter.stringify(content, frontmatter);
+    const md = matter.stringify(bodyContent, frontmatter);
     fs.writeFileSync(filePath, md, 'utf-8');
     this.loadSkillFile(filePath);
     return filePath;
