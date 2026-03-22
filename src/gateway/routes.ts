@@ -1031,10 +1031,71 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     });
   });
 
-  // Memories search (for CommandPalette)
+  // Memories search (semantic search powered by LLM re-ranking)
   app.get('/api/v1/memories/search', async (request) => {
     const query = request.query as { q: string; limit?: string };
-    return searchMemoriesByText(query.q, parseInt(query.limit ?? '10', 10));
+    const searchQuery = query.q;
+    const limit = parseInt(query.limit ?? '10', 10);
+
+    if (!searchQuery || !searchQuery.trim()) {
+      return getMemories(limit, 0);
+    }
+
+    // First: try text-based search for exact/word matches (fast path)
+    const textResults = searchMemoriesByText(searchQuery, limit);
+
+    // If provider is available, enhance with LLM semantic re-ranking
+    if (providerManager.isConnected()) {
+      try {
+        // Load a broad set of candidate memories for re-ranking
+        const allMemories = getMemories(200, 0);
+        if (allMemories.length === 0) return [];
+
+        // Build compact memory list for LLM — include tags for better context
+        const memoryList = allMemories
+          .map((m, i) => {
+            const tags = Array.isArray(m.tags) && m.tags.length > 0 ? ` [${m.tags.join(',')}]` : '';
+            return `${i}|${m.content.slice(0, 120)}${tags}`;
+          })
+          .join('\n');
+
+        const systemPrompt = `You are a semantic memory search engine. Your task is to score memories by how semantically related they are to a search query. Think about the MEANING and TOPIC of each memory, not just keyword overlap. A memory about "TypeScript" or "React" is highly relevant to a query about "programming languages" even if those exact words don't appear. A memory about "running 5km" is relevant to "fitness" even without that word. Score from 0 (unrelated) to 10 (perfect match). Return ONLY valid JSON.`;
+
+        const userPrompt = `Query: "${searchQuery}"
+
+Memories (index|content):
+${memoryList}
+
+Return a JSON array of {"i":index,"s":score} for memories with score > 0, sorted by score descending.`;
+
+        const response = await providerManager.chatComplete(
+          [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          { max_tokens: 500, temperature: 0 },
+        );
+
+        // Parse LLM response — extract JSON array
+        const jsonMatch = response.match(/\[[\s\S]*?\]/);
+        if (jsonMatch) {
+          const scores = JSON.parse(jsonMatch[0]) as Array<{ i: number; s: number }>;
+          const ranked = scores
+            .filter(s => s.s > 0 && s.i >= 0 && s.i < allMemories.length)
+            .sort((a, b) => b.s - a.s)
+            .slice(0, limit)
+            .map(s => allMemories[s.i]);
+
+          if (ranked.length > 0) return ranked;
+        }
+      } catch (err) {
+        // LLM re-ranking failed — fall through to text results
+        console.warn('Semantic search LLM re-ranking failed, using text fallback:', err);
+      }
+    }
+
+    // Fallback: return text-based results
+    return textResults;
   });
 
     // Skill suggestion based on conversation patterns

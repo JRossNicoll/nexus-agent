@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ArrowRight, ArrowLeft, Check, AlertCircle, Brain, MessageSquare,
-  Sparkles, User, Loader2, SkipForward, ExternalLink, Bot,
+  Sparkles, User, Loader2, SkipForward, ExternalLink, Bot, X, HelpCircle,
 } from "lucide-react";
 import { onboardingAPI, providerAPI, memoryAPI, type MemoryGraphDataWithClusters } from "@/lib/api";
 import * as d3 from "d3";
@@ -39,6 +39,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   });
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null);
+  const [showApiKeyGuide, setShowApiKeyGuide] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [welcomeMsg, setWelcomeMsg] = useState("");
   const [loadingWelcome, setLoadingWelcome] = useState(false);
@@ -357,6 +358,94 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   )}
                 </div>
               )}
+
+              {/* "I don't have an API key yet" button */}
+              <button
+                onClick={() => setShowApiKeyGuide(true)}
+                className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 text-sm text-gray-400 hover:text-white bg-[var(--bg-raised)]/50 hover:bg-[var(--bg-raised)] border border-white/[0.06] rounded-xl transition-all"
+              >
+                <HelpCircle className="w-4 h-4" />
+                I don&apos;t have an API key yet
+              </button>
+
+              {/* API Key Guide Modal */}
+              {showApiKeyGuide && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowApiKeyGuide(false)}>
+                  <div className="bg-[var(--bg-surface)] border border-white/[0.08] rounded-2xl w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+                      <h3 className="text-lg font-semibold text-white">How to get an API key</h3>
+                      <button onClick={() => setShowApiKeyGuide(false)} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/[0.06] transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="p-5 space-y-5">
+                      <p className="text-sm text-gray-400 leading-relaxed">
+                        An API key is like a password that lets NEXUS talk to an AI service.
+                        Think of it like giving NEXUS permission to use a smart assistant on your behalf.
+                        Here&apos;s how to get one:
+                      </p>
+
+                      <div className="space-y-4">
+                        <div className="flex gap-3">
+                          <span className="w-7 h-7 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                          <div>
+                            <p className="text-sm text-white font-medium">Go to the Anthropic website</p>
+                            <p className="text-xs text-gray-400 mt-1">Anthropic is the company that makes Claude, the AI that powers NEXUS. Visit their website to create a free account.</p>
+                            <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mt-1.5 text-xs text-[var(--accent)] hover:underline">
+                              Open console.anthropic.com <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <span className="w-7 h-7 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                          <div>
+                            <p className="text-sm text-white font-medium">Create a free account</p>
+                            <p className="text-xs text-gray-400 mt-1">Click &ldquo;Sign up&rdquo; and create an account using your email address. You&apos;ll need to verify your email. Anthropic gives you free credits to start with.</p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <span className="w-7 h-7 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                          <div>
+                            <p className="text-sm text-white font-medium">Find the API Keys page</p>
+                            <p className="text-xs text-gray-400 mt-1">Once you&apos;re logged in, look for &ldquo;API Keys&rdquo; in the left sidebar, or go directly to the link below.</p>
+                            <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mt-1.5 text-xs text-[var(--accent)] hover:underline">
+                              Go to API Keys page <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <span className="w-7 h-7 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                          <div>
+                            <p className="text-sm text-white font-medium">Create a new key</p>
+                            <p className="text-xs text-gray-400 mt-1">Click the &ldquo;Create Key&rdquo; button. Give it a name like &ldquo;NEXUS&rdquo; so you remember what it&apos;s for. Click &ldquo;Create&rdquo;.</p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <span className="w-7 h-7 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
+                          <div>
+                            <p className="text-sm text-white font-medium">Copy and paste the key</p>
+                            <p className="text-xs text-gray-400 mt-1">Your new key will appear on screen. It starts with <code className="bg-[var(--bg-raised)] px-1 py-0.5 rounded text-[var(--accent)] text-[11px]">sk-ant-</code>. Click the copy button next to it, then come back here and paste it into the API key field.</p>
+                            <p className="text-xs text-amber-400/80 mt-1.5">Important: You can only see the full key once. Make sure to copy it before closing the page.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setShowApiKeyGuide(false)}
+                        className="w-full py-2.5 bg-[var(--accent)] hover:bg-[var(--accent)]/80 text-white text-sm font-medium rounded-xl transition-all"
+                      >
+                        Got it, let me enter my key
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -367,8 +456,12 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <MessageSquare className="w-6 h-6 text-[var(--accent)]" />
                 <h2 className="text-xl font-bold text-white">Connect Telegram</h2>
               </div>
-              <p className="text-gray-400 text-sm mb-6">
+              <p className="text-gray-400 text-sm mb-4">
                 Connect Telegram so NEXUS can reach you outside the browser. This is optional.
+              </p>
+              <p className="text-xs text-gray-500 mb-6">
+                Telegram is a free messaging app. Connecting it lets NEXUS send you messages and
+                respond to you on your phone, even when this browser tab is closed.
               </p>
 
               <div className="bg-[var(--bg-surface)] rounded-xl p-5 border border-white/[0.06] mb-6">
@@ -527,8 +620,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </div>
               <div className="flex items-center gap-3">
                 {step === 2 && (
-                  <button onClick={nextStep} className="text-sm text-gray-500 hover:text-gray-300 flex items-center gap-1.5 transition-colors">
-                    <SkipForward className="w-3.5 h-3.5" /> Skip
+                  <button onClick={nextStep} className="px-4 py-2 text-sm text-gray-300 hover:text-white bg-[var(--bg-raised)]/60 hover:bg-[var(--bg-raised)] border border-white/[0.08] rounded-xl flex items-center gap-1.5 transition-all">
+                    Skip for now &mdash; set this up later in Settings
                   </button>
                 )}
                 <button

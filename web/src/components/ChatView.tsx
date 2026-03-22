@@ -55,10 +55,12 @@ export default function ChatView() {
   }, []);
 
   useEffect(() => {
-    nexusWS.connect();
+    // WebSocket connection is managed at app level (page.tsx) — no connect() call here
     const unsubConnect = nexusWS.on("connected", () => setConnected(true));
     const unsubDisconnect = nexusWS.on("disconnected", () => setConnected(false));
     const unsubHello = nexusWS.on("hello-ok", () => setConnected(true));
+    // Sync initial state
+    setConnected(nexusWS.isConnected());
 
     const unsubStream = nexusWS.on("chat-stream", (msg: WSMessage) => {
       const payload = msg.payload as { content: string; done: boolean };
@@ -208,11 +210,6 @@ export default function ChatView() {
       <div style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-surface)", backdropFilter: "blur(12px)" }} className="flex items-center justify-between px-6 h-12">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-white">Chat</h1>
-          <div className={cn("flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px]",
-            connected ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
-            <div className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-400" : "bg-red-400")} />
-            {connected ? "Connected" : "Disconnected"}
-          </div>
         </div>
       </div>
 
