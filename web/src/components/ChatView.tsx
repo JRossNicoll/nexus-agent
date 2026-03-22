@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Send, Loader2, Bot, User, Copy, Check, ChevronDown, ChevronUp, Zap, ArrowDown, Search, Brain, Globe, Cpu, CheckCircle, AlertCircle, FileText } from "lucide-react";
 import { nexusWS, type WSMessage } from "@/lib/websocket";
 import { cn, formatTimestamp } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 
 interface Message {
   id: string;
@@ -36,6 +39,98 @@ interface ChatViewProps {
   onPendingConsumed?: () => void;
 }
 
+/* ── Markdown rendering components ── */
+function CodeCopyButton({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button onClick={handleCopy} className="absolute top-2 right-2 p-1.5 rounded transition-opacity opacity-0 group-hover:opacity-100"
+      style={{ background: "var(--bg-raised)" }}>
+      {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-gray-400" />}
+    </button>
+  );
+}
+
+function buildMarkdownComponents(): Components {
+  return {
+    p({ children }) {
+      return <p style={{ fontSize: "13.5px", lineHeight: 1.7, color: "#b8bec9", marginBottom: 10 }}>{children}</p>;
+    },
+    strong({ children }) {
+      return <strong style={{ color: "#c8cdd6", fontWeight: 500 }}>{children}</strong>;
+    },
+    ul({ children }) {
+      return <ul style={{ paddingLeft: 18, marginBottom: 10, color: "#b8bec9" }}>{children}</ul>;
+    },
+    ol({ children }) {
+      return <ol style={{ paddingLeft: 18, marginBottom: 10, color: "#b8bec9" }}>{children}</ol>;
+    },
+    li({ children }) {
+      return <li style={{ marginBottom: 4, lineHeight: 1.6 }}>{children}</li>;
+    },
+    h1({ children }) {
+      return <h1 style={{ fontFamily: "Inter, sans-serif", fontWeight: 600, color: "#c8cdd6", marginBottom: 8, marginTop: 14, fontSize: 16 }}>{children}</h1>;
+    },
+    h2({ children }) {
+      return <h2 style={{ fontFamily: "Inter, sans-serif", fontWeight: 600, color: "#c8cdd6", marginBottom: 8, marginTop: 14, fontSize: 14 }}>{children}</h2>;
+    },
+    h3({ children }) {
+      return <h3 style={{ fontFamily: "Inter, sans-serif", fontWeight: 600, color: "#c8cdd6", marginBottom: 8, marginTop: 14, fontSize: 13 }}>{children}</h3>;
+    },
+    a({ href, children }) {
+      return <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#2d8cff", textDecoration: "none" }}
+        onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+        onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>{children}</a>;
+    },
+    blockquote({ children }) {
+      return <blockquote style={{ borderLeft: "2px solid rgba(45,140,255,0.3)", paddingLeft: 12, color: "#7e8899", margin: "8px 0" }}>{children}</blockquote>;
+    },
+    hr() {
+      return <hr style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.07)", margin: "12px 0" }} />;
+    },
+    code({ className, children, ...props }) {
+      const match = /language-(\w+)/.exec(className || "");
+      const isBlock = match || (typeof children === "string" && children.includes("\n"));
+      if (isBlock) {
+        const codeStr = String(children).replace(/\n$/, "");
+        return (
+          <div className="relative group" style={{ marginBottom: 10 }}>
+            {match && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 14px",
+                background: "var(--bg-raised)", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
+                <span style={{ fontSize: 11, fontFamily: "JetBrains Mono, monospace", color: "#7e8899", textTransform: "uppercase", letterSpacing: "0.5px" }}>{match[1]}</span>
+              </div>
+            )}
+            <pre style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: match ? "0 0 8px 8px" : 8, padding: "12px 14px",
+              fontFamily: "JetBrains Mono, monospace", fontSize: 12, overflowX: "auto", margin: 0 }}>
+              <code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}>{codeStr}</code>
+            </pre>
+            <CodeCopyButton code={codeStr} />
+          </div>
+        );
+      }
+      // Inline code
+      return (
+        <code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12,
+          background: "rgba(45,140,255,0.08)", border: "1px solid rgba(45,140,255,0.15)",
+          borderRadius: 4, padding: "1px 6px", color: "rgba(45,140,255,0.85)" }} {...props}>{children}</code>
+      );
+    },
+    pre({ children }) {
+      // The code component handles the actual rendering — just pass children through
+      return <>{children}</>;
+    },
+  };
+}
+
+const mdComponents = buildMarkdownComponents();
+
 export default function ChatView({ pendingMessage, onPendingConsumed }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -48,6 +143,24 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Debounced streaming content: buffer raw stream and flush every 50ms
+  const [debouncedMessages, setDebouncedMessages] = useState<Message[]>([]);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    const hasStreaming = messages.some(m => m.streaming);
+    if (hasStreaming) {
+      debounceTimerRef.current = setTimeout(() => {
+        setDebouncedMessages([...messages]);
+      }, 50);
+    } else {
+      // Not streaming — update immediately
+      setDebouncedMessages([...messages]);
+    }
+    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+  }, [messages]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -201,49 +314,20 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
     }));
   };
 
-  const renderContent = (content: string) => {
-    const parts = content.split(/(```[\s\S]*?```)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith("```") && part.endsWith("```")) {
-        const lines = part.slice(3, -3);
-        const firstNewline = lines.indexOf("\n");
-        const lang = firstNewline > 0 ? lines.slice(0, firstNewline).trim() : "";
-        const code = firstNewline > 0 ? lines.slice(firstNewline + 1) : lines;
-        return (
-          <div key={i} className="my-3 relative group">
-            {lang && (
-              <div className="flex items-center justify-between px-4 py-1.5 bg-[var(--bg-raised)] rounded-t-lg border-b border-white/[0.04]">
-                <span className="text-[11px] font-mono text-gray-500 uppercase tracking-wider">{lang}</span>
-                <button onClick={() => copyToClipboard(code, `code-${i}`)} className="p-1 rounded text-gray-500 hover:text-gray-300 transition-colors">
-                  {copiedId === `code-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                </button>
-              </div>
-            )}
-            <pre className={cn("!mt-0", lang ? "!rounded-t-none" : "")}>
-              <code>{code}</code>
-            </pre>
-            {!lang && (
-              <button onClick={() => copyToClipboard(code, `code-${i}`)}
-                className="absolute top-2 right-2 p-1.5 rounded bg-[var(--bg-raised)] opacity-0 group-hover:opacity-100 transition-opacity">
-                {copiedId === `code-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-gray-400" />}
-              </button>
-            )}
-          </div>
-        );
-      }
-      const inlineParts = part.split(/(`[^`]+`)/g);
-      return (
-        <span key={i}>
-          {inlineParts.map((ip, j) => {
-            if (ip.startsWith("`") && ip.endsWith("`")) {
-              return <code key={j} className="px-1.5 py-0.5 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded text-[13px] text-[var(--accent)]">{ip.slice(1, -1)}</code>;
-            }
-            return <span key={j}>{ip}</span>;
-          })}
-        </span>
-      );
-    });
+  /* ── Render message content with ReactMarkdown ── */
+  const renderContent = (msg: Message) => {
+    return (
+      <div className="nexus-markdown">
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+          {msg.content}
+        </ReactMarkdown>
+        {msg.streaming && <span className="inline-block w-[2px] h-4 bg-[var(--accent)] typing-cursor ml-0.5 align-middle" />}
+      </div>
+    );
   };
+
+  // Use debouncedMessages for rendering to avoid flicker during streaming
+  const displayMessages = debouncedMessages;
 
   return (
     <div className="flex flex-col h-full relative">
@@ -314,7 +398,7 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
           </div>
         )}
 
-        {messages.length === 0 && (
+        {displayMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent)]/10 flex items-center justify-center mb-5 shadow-lg shadow-[var(--accent)]/10">
               <Bot className="w-8 h-8 text-[var(--accent)]" />
@@ -326,7 +410,7 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
           </div>
         )}
 
-        {messages.map((msg, idx) => (
+        {displayMessages.map((msg, idx) => (
           <div key={msg.id} className={cn("flex gap-3 max-w-4xl mx-auto", msg.role === "user" ? "justify-end" : "justify-start", msg.isProactive ? "animate-slideDown" : "animate-fade-in")}>
             {msg.role !== "user" && (
               <div className={cn("flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5",
@@ -344,10 +428,11 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
                   NEXUS reached out
                 </div>
               )}
-              <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                {renderContent(msg.content)}
-                {msg.streaming && <span className="inline-block w-[2px] h-4 bg-[var(--accent)] typing-cursor ml-0.5 align-middle" />}
-              </div>
+              {msg.role === "user" ? (
+                <div className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</div>
+              ) : (
+                renderContent(msg)
+              )}
               {/* Thinking dots */}
               {msg.streaming && !msg.content && (
                 <div className="flex items-center gap-1.5 py-1">
