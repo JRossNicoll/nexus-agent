@@ -9,6 +9,8 @@ import ActivityView from '@/components/ActivityView';
 import SettingsView from '@/components/SettingsView';
 import AuthGate from '@/components/AuthGate';
 import OnboardingFlow from '@/components/OnboardingFlow';
+import AmbientOrb from '@/components/AmbientOrb';
+import CommandPalette from '@/components/CommandPalette';
 import { authAPI, onboardingAPI } from '@/lib/api';
 
 export default function Home() {
@@ -90,6 +92,8 @@ export default function Home() {
       <main className="flex-1 overflow-hidden">
         {renderContent()}
       </main>
+      <AmbientOrb />
+      <CommandPalette onNavigate={setActiveTab} />
     </div>
   );
 }

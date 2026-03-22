@@ -53,3 +53,22 @@ pre code { @apply text-gray-300; }
 }
 
 select option { @apply bg-surface-2 text-gray-200; }
+
+/* Ambient Orb states */
+@keyframes orb-pulse-idle { 0%, 100% { box-shadow: 0 0 8px 2px rgba(99,102,241,0.15), 0 0 20px 4px rgba(99,102,241,0.05); transform: scale(1); } 50% { box-shadow: 0 0 12px 4px rgba(99,102,241,0.25), 0 0 30px 8px rgba(99,102,241,0.08); transform: scale(1.02); } }
+@keyframes orb-pulse-thinking { 0%, 100% { box-shadow: 0 0 15px 5px rgba(99,102,241,0.4), 0 0 40px 10px rgba(99,102,241,0.15); transform: scale(1); } 50% { box-shadow: 0 0 25px 8px rgba(99,102,241,0.6), 0 0 50px 15px rgba(99,102,241,0.2); transform: scale(1.05); } }
+@keyframes orb-pulse-tool { 0%, 100% { box-shadow: 0 0 15px 5px rgba(99,102,241,0.5), 0 0 40px 10px rgba(129,140,248,0.2); } 50% { box-shadow: 0 0 25px 8px rgba(129,140,248,0.6), 0 0 50px 15px rgba(99,102,241,0.25); } }
+@keyframes orb-pulse-proactive { 0%, 100% { box-shadow: 0 0 15px 5px rgba(234,179,8,0.3), 0 0 40px 10px rgba(234,179,8,0.1); } 50% { box-shadow: 0 0 25px 8px rgba(234,179,8,0.5), 0 0 50px 15px rgba(234,179,8,0.15); } }
+@keyframes palette-in { 0% { opacity: 0; transform: scale(0.95) translateY(-10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }
+
+.orb-idle { background: radial-gradient(circle at 35% 35%, rgba(129,140,248,0.6), rgba(99,102,241,0.3), rgba(67,56,202,0.4)); animation: orb-pulse-idle 4s ease-in-out infinite; }
+.orb-idle-glow { animation: orb-pulse-idle 4s ease-in-out infinite; }
+.orb-thinking { background: radial-gradient(circle at 35% 35%, rgba(165,180,252,0.8), rgba(99,102,241,0.6), rgba(79,70,229,0.5)); animation: orb-pulse-thinking 1.5s ease-in-out infinite; }
+.orb-thinking-glow { animation: orb-pulse-thinking 1.5s ease-in-out infinite; }
+.orb-tool { background: radial-gradient(circle at 35% 35%, rgba(165,180,252,0.9), rgba(129,140,248,0.7), rgba(99,102,241,0.6)); animation: orb-pulse-tool 1s ease-in-out infinite; }
+.orb-tool-glow { animation: orb-pulse-tool 1s ease-in-out infinite; }
+.orb-proactive { background: radial-gradient(circle at 35% 35%, rgba(250,204,21,0.6), rgba(234,179,8,0.4), rgba(202,138,4,0.3)); animation: orb-pulse-proactive 2s ease-in-out infinite; }
+.orb-proactive-glow { animation: orb-pulse-proactive 2s ease-in-out infinite; }
+.animate-palette-in { animation: palette-in 0.15s ease-out; }
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
