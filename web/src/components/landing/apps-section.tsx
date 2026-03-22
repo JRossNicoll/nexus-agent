@@ -7,25 +7,25 @@ const apps = [
     link: "#",
   },
   {
-    title: "Deploy with NEXUS Deploy",
+    title: "Deploy with MEDO Deploy",
     description: "Simplified deployment experience with one-click templates and an intuitive dashboard for managing workloads.",
     link: "#",
   },
   {
-    title: "Create DApps on NEXUS",
+    title: "Create DApps on MEDO",
     description: "Build and deploy decentralized applications with persistent storage, custom domains, and scalable infrastructure.",
     link: "#",
   },
 ]
 
-function NexusFanLogo() {
+function MedoFanLogo() {
   return (
     <div className="flex items-center gap-1.5">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <path d="M12 2L2 22h20L12 2z" fill="#ff3333" />
         <path d="M12 9l-3 6h6l-3-6z" fill="#1a0808" />
       </svg>
-      <span className="text-sm font-bold text-white">nexus<span className="text-[#ff3333]">.</span>fan</span>
+      <span className="text-sm font-bold text-white">medo<span className="text-[#ff3333]">.</span>fan</span>
     </div>
   )
 }
@@ -39,7 +39,7 @@ export default function AppsSection() {
       <div className="mx-auto max-w-7xl px-6">
         <div className="mb-16 text-center">
           <h2 className="text-balance text-3xl font-bold text-white sm:text-4xl">
-            NEXUS Apps
+            MEDO Apps
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-sm leading-relaxed text-[#888] sm:text-base">
             Explore the suite of apps for deploying, managing, and monitoring your
@@ -62,7 +62,7 @@ export default function AppsSection() {
                 }} />
                 <div className="absolute left-1/2 top-1/2 h-20 w-40 -translate-x-1/2 -translate-y-1/2 bg-[#ff3333]/12 blur-[50px] transition-all duration-500 group-hover:bg-[#ff3333]/[0.16]" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <NexusFanLogo />
+                  <MedoFanLogo />
                 </div>
                 <div className="absolute bottom-0 left-1/2 z-10 h-px w-3/4 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#ff3333]/25 to-transparent" />
               </div>

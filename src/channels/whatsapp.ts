@@ -1,4 +1,4 @@
-import type { NexusConfig } from '../types/index.js';
+import type { MedoConfig } from '../types/index.js';
 import { insertActivity } from '../memory/database.js';
 
 /**
@@ -7,11 +7,11 @@ import { insertActivity } from '../memory/database.js';
  * and QR code pairing which is handled through the web UI.
  */
 export class WhatsAppChannel {
-  private config: NexusConfig;
+  private config: MedoConfig;
   private connected = false;
   private onMessage: ((content: string, channel: string, respond: (text: string) => Promise<void>) => Promise<void>) | null = null;
 
-  constructor(config: NexusConfig) {
+  constructor(config: MedoConfig) {
     this.config = config;
   }
 

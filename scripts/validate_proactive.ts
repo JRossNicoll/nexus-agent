@@ -19,7 +19,7 @@ import {
 } from '../src/memory/database.js';
 import { ProactiveWorker } from '../src/proactive/index.js';
 
-const TEST_DB = '/tmp/nexus-test-proactive.db';
+const TEST_DB = '/tmp/medo-test-proactive.db';
 let passed = 0;
 let failed = 0;
 

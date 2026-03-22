@@ -108,7 +108,7 @@ export default function HomeScreen({ onSend, onNavigate }: HomeScreenProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask NEXUS anything..."
+          placeholder="Ask MEDO anything..."
           style={{
             flex: 1,
             background: 'transparent',

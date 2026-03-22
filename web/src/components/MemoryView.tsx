@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useMemories, useMemoryHealth, useMemoryClusters } from "@/lib/hooks";
-import { nexusWS, type WSMessage } from "@/lib/websocket";
+import { medoWS, type WSMessage } from "@/lib/websocket";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:18799";
 
@@ -349,7 +349,7 @@ export default function MemoryView() {
 
   // Memory pulse ripple handler
   useEffect(() => {
-    const unsub = nexusWS.on("memory-pulse", (msg: WSMessage) => {
+    const unsub = medoWS.on("memory-pulse", (msg: WSMessage) => {
       const payload = msg.payload as { memoryIds?: string[]; memoryId?: string };
       const ids = payload.memoryIds || (payload.memoryId ? [payload.memoryId] : []);
       if (!svgRef.current || viewMode !== "graph") return;
@@ -476,7 +476,7 @@ export default function MemoryView() {
                     <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
                   </svg>
                   <p style={{ fontSize: 14, color: "var(--text-2)", margin: "4px 0" }}>No memories yet</p>
-                  <p style={{ fontSize: 12, margin: 0 }}>Memories will appear here as you chat with NEXUS</p>
+                  <p style={{ fontSize: 12, margin: 0 }}>Memories will appear here as you chat with MEDO</p>
                 </div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10, maxWidth: 900, margin: "0 auto" }}>

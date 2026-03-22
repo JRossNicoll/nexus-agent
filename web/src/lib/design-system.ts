@@ -1,5 +1,5 @@
 /**
- * NEXUS Design System — shared tokens extracted from the v0 landing page.
+ * MEDO Design System — shared tokens extracted from the v0 landing page.
  * Both the landing page and the app import from here.
  */
 

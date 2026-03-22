@@ -1,5 +1,5 @@
 #!/bin/bash
-# Validate NEXUS installer scripts exist and are well-formed
+# Validate MEDO installer scripts exist and are well-formed
 set -e
 
 PASS=0
@@ -17,7 +17,7 @@ check() {
   fi
 }
 
-echo "=== NEXUS Installer Validation ==="
+echo "=== MEDO Installer Validation ==="
 echo ""
 
 # Mac installer

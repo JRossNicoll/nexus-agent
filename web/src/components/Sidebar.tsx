@@ -42,7 +42,7 @@ export default function Sidebar({ activeTab, onTabChange, onLogoClick }: Sidebar
       <div
         style={{ marginBottom: 12, cursor: 'pointer' }}
         onClick={onLogoClick || (() => onTabChange('home'))}
-        title="Back to NEXUS home"
+        title="Back to MEDO home"
       >
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
           <path d="M12 2L2 22h20L12 2z" fill="#ff3333" />

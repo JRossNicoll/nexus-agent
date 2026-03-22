@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { nexusWS, type WSMessage } from "@/lib/websocket";
+import { medoWS, type WSMessage } from "@/lib/websocket";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:18799";
 
@@ -61,7 +61,7 @@ export default function SkillsView() {
   useEffect(() => { fetchSkills(); }, [fetchSkills]);
 
   useEffect(() => {
-    const unsub = nexusWS.on("skill-suggestion", (msg: WSMessage) => {
+    const unsub = medoWS.on("skill-suggestion", (msg: WSMessage) => {
       const p = msg.payload as { suggestion: string };
       if (p.suggestion) setSuggestion(p.suggestion);
     });
@@ -70,7 +70,7 @@ export default function SkillsView() {
 
   // Listen for skill_execution_complete WS events — update card without page refresh
   useEffect(() => {
-    const unsub = nexusWS.on("skill_execution_complete", (msg: WSMessage) => {
+    const unsub = medoWS.on("skill_execution_complete", (msg: WSMessage) => {
       const p = msg.payload as SkillExecutionEvent;
       setRunningSkill(prev => prev === p.skill_id ? null : prev);
       if (p.success) {

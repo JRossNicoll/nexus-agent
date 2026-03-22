@@ -29,11 +29,11 @@ export default function AktSection() {
           {/* Text content */}
           <div className="relative px-8 pb-12 pt-8 text-center sm:px-16">
             <h2 className="text-balance text-3xl font-bold text-white sm:text-4xl">
-              NXT: The Fuel Behind NEXUS
+              NXT: The Fuel Behind MEDO
             </h2>
 
             <p className="mx-auto mt-5 max-w-2xl text-pretty text-sm leading-relaxed text-[#888] sm:text-base">
-              NXT is the native utility token of the NEXUS Network, used for governance, staking,
+              NXT is the native utility token of the MEDO Network, used for governance, staking,
               and as the primary settlement currency for cloud compute resources. It powers the
               decentralized marketplace and incentivizes network participants.
             </p>

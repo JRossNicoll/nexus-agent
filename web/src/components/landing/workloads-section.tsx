@@ -68,7 +68,7 @@ export default function WorkloadsSection() {
             Optimized for AI & Data Workloads
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-sm leading-relaxed text-[#888] sm:text-base">
-            NEXUS is a Decentralized Cloud that provides fast, efficient, and low-cost
+            MEDO is a Decentralized Cloud that provides fast, efficient, and low-cost
             compute resources for AI/ML, data analytics, and more.
           </p>
         </div>

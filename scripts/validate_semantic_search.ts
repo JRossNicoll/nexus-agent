@@ -8,7 +8,7 @@
  * appears in the top 3 results."
  */
 
-const GATEWAY = process.env.NEXUS_GATEWAY ?? 'http://localhost:18799';
+const GATEWAY = process.env.MEDO_GATEWAY ?? 'http://localhost:18799';
 
 let passed = 0;
 let failed = 0;
@@ -214,7 +214,7 @@ async function cleanupTestMemories(ids: string[]): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  console.log('=== NEXUS Semantic Memory Search Validation ===');
+  console.log('=== MEDO Semantic Memory Search Validation ===');
 
   const seededIds = await seedTestMemories();
 

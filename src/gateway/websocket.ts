@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
-import type { WSMessage, ChatRequest, NexusConfig } from '../types/index.js';
+import type { WSMessage, ChatRequest, MedoConfig } from '../types/index.js';
 import { ProviderManager } from '../providers/index.js';
 import { SkillManager } from '../skills/index.js';
 import {
@@ -35,7 +35,7 @@ const clients: Map<string, ConnectedClient> = new Map();
 
 export function setupWebSocket(
   app: FastifyInstance,
-  config: NexusConfig,
+  config: MedoConfig,
   providerManager: ProviderManager,
   skillManager: SkillManager,
 ): void {
@@ -80,7 +80,7 @@ export function setupWebSocket(
 async function handleMessage(
   client: ConnectedClient,
   message: WSMessage,
-  config: NexusConfig,
+  config: MedoConfig,
   providerManager: ProviderManager,
   skillManager: SkillManager,
 ): Promise<void> {
@@ -143,7 +143,7 @@ async function handleMessage(
 async function handleChat(
   client: ConnectedClient,
   request: ChatRequest,
-  config: NexusConfig,
+  config: MedoConfig,
   providerManager: ProviderManager,
   skillManager: SkillManager,
 ): Promise<void> {
@@ -239,7 +239,7 @@ async function handleChat(
   }
 
   // Build system prompt
-  let systemPrompt = `You are Nexus, a personal AI assistant. You are knowledgeable, helpful, and proactive.
+  let systemPrompt = `You are Medo, a personal AI assistant. You are knowledgeable, helpful, and proactive.
 
 RESPONSE FORMATTING RULES — follow these exactly:
 

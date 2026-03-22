@@ -1,37 +1,37 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { nexusWS, type WSMessage } from "@/lib/websocket";
+import { medoWS, type WSMessage } from "@/lib/websocket";
 
 type OrbState = "idle" | "thinking" | "tool" | "proactive";
 
 export default function AmbientOrb() {
   const [state, setState] = useState<OrbState>("idle");
-  const [tooltip, setTooltip] = useState("NEXUS is ready");
+  const [tooltip, setTooltip] = useState("MEDO is ready");
   const [showTooltip, setShowTooltip] = useState(false);
 
   useEffect(() => {
     const unsubs = [
-      nexusWS.on("chat-stream", () => { setState("thinking"); setTooltip("Thinking..."); }),
-      nexusWS.on("chat-done", () => { setState("idle"); setTooltip("NEXUS is ready"); }),
-      nexusWS.on("chat-error", () => { setState("idle"); setTooltip("NEXUS is ready"); }),
-      nexusWS.on("tool-call", () => { setState("tool"); setTooltip("Running a task..."); }),
-      nexusWS.on("execution-trace", (msg: WSMessage) => {
+      medoWS.on("chat-stream", () => { setState("thinking"); setTooltip("Thinking..."); }),
+      medoWS.on("chat-done", () => { setState("idle"); setTooltip("MEDO is ready"); }),
+      medoWS.on("chat-error", () => { setState("idle"); setTooltip("MEDO is ready"); }),
+      medoWS.on("tool-call", () => { setState("tool"); setTooltip("Running a task..."); }),
+      medoWS.on("execution-trace", (msg: WSMessage) => {
         const p = msg.payload as { step: string; status: string };
         if (p.status === "active") { setState("thinking"); setTooltip(p.step); }
-        else if (p.status === "done") { setTimeout(() => { setState(s => s === "thinking" ? "idle" : s); setTooltip("NEXUS is ready"); }, 1000); }
+        else if (p.status === "done") { setTimeout(() => { setState(s => s === "thinking" ? "idle" : s); setTooltip("MEDO is ready"); }, 1000); }
       }),
-      nexusWS.on("trace_step", (msg: WSMessage) => {
+      medoWS.on("trace_step", (msg: WSMessage) => {
         const p = msg.payload as { step: string; status: string };
         if (p.status === "active") { setState("thinking"); setTooltip(p.step); }
-        else if (p.status === "done") { setTimeout(() => { setState(s => s === "thinking" ? "idle" : s); setTooltip("NEXUS is ready"); }, 1000); }
+        else if (p.status === "done") { setTimeout(() => { setState(s => s === "thinking" ? "idle" : s); setTooltip("MEDO is ready"); }, 1000); }
       }),
-      nexusWS.on("proactive", () => {
+      medoWS.on("proactive", () => {
         setState("proactive"); setTooltip("I have something for you");
-        setTimeout(() => { setState("idle"); setTooltip("NEXUS is ready"); }, 5000);
+        setTimeout(() => { setState("idle"); setTooltip("MEDO is ready"); }, 5000);
       }),
-      nexusWS.on("reconnecting", () => { setTooltip("Reconnecting..."); }),
-      nexusWS.on("reconnected", () => { setTooltip("NEXUS is ready"); }),
+      medoWS.on("reconnecting", () => { setTooltip("Reconnecting..."); }),
+      medoWS.on("reconnected", () => { setTooltip("MEDO is ready"); }),
     ];
     return () => { unsubs.forEach(u => u()); };
   }, []);

@@ -1,5 +1,5 @@
 // Validate Settings API endpoints work correctly
-const GATEWAY = process.env.NEXUS_GATEWAY_PORT ? `http://localhost:${process.env.NEXUS_GATEWAY_PORT}` : 'http://localhost:18799';
+const GATEWAY = process.env.MEDO_GATEWAY_PORT ? `http://localhost:${process.env.MEDO_GATEWAY_PORT}` : 'http://localhost:18799';
 
 let passed = 0;
 let failed = 0;

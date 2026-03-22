@@ -1,7 +1,7 @@
 // Validate dynamic execution trace events via WebSocket
 import WebSocket from 'ws';
 
-const GATEWAY_WS = process.env.NEXUS_GATEWAY_PORT ? `ws://localhost:${process.env.NEXUS_GATEWAY_PORT}` : 'ws://localhost:18799';
+const GATEWAY_WS = process.env.MEDO_GATEWAY_PORT ? `ws://localhost:${process.env.MEDO_GATEWAY_PORT}` : 'ws://localhost:18799';
 
 let passed = 0;
 let failed = 0;

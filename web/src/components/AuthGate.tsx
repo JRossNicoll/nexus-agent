@@ -54,9 +54,9 @@ export default function AuthGate({ onAuthenticated }: AuthGateProps) {
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#ff3333] to-[#cc2222] flex items-center justify-center shadow-xl shadow-[#ff3333]/25 mb-4">
             <Hexagon className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-1">NEXUS</h1>
+          <h1 className="text-2xl font-bold text-white mb-1">MEDO</h1>
           <p className="text-sm text-gray-500">
-            {isSetup ? 'Set up your PIN to secure NEXUS' : 'Enter your PIN to continue'}
+            {isSetup ? 'Set up your PIN to secure MEDO' : 'Enter your PIN to continue'}
           </p>
         </div>
 

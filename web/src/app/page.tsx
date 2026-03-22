@@ -14,7 +14,7 @@ import OnboardingFlow from '@/components/OnboardingFlow';
 import AmbientOrb from '@/components/AmbientOrb';
 import CommandPalette from '@/components/CommandPalette';
 import { authAPI, onboardingAPI } from '@/lib/api';
-import { nexusWS } from '@/lib/websocket';
+import { medoWS } from '@/lib/websocket';
 
 export default function Home() {
   const [showApp, setShowApp] = useState(false);
@@ -39,7 +39,7 @@ export default function Home() {
   // Persistent app-level WebSocket connection (only when in app mode)
   useEffect(() => {
     if (showApp) {
-      nexusWS.connect();
+      medoWS.connect();
     }
   }, [showApp]);
 
@@ -106,7 +106,7 @@ export default function Home() {
             borderTopColor: 'var(--accent)',
             animation: 'spin 0.8s linear infinite',
           }} />
-          <span>Connecting to NEXUS...</span>
+          <span>Connecting to MEDO...</span>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>

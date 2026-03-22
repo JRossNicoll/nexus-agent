@@ -17,14 +17,14 @@ import { Cron } from 'croner';
 
 async function main(): Promise<void> {
   console.log('╔══════════════════════════════════════╗');
-  console.log('║         NEXUS Agent Gateway          ║');
+  console.log('║         MEDO Agent Gateway          ║');
   console.log('║      Enhanced Personal AI Agent      ║');
   console.log('╚══════════════════════════════════════╝');
 
   // Load configuration
   const config = loadConfig();
   const port = getPort();
-  console.log(`Configuration loaded from ~/.nexus/config.json`);
+  console.log(`Configuration loaded from ~/.medo/config.json`);
 
   // Initialize database
   initDatabase();
@@ -129,7 +129,7 @@ async function main(): Promise<void> {
     console.log(`WebSocket: ws://localhost:${port}/ws`);
     console.log(`OpenAI API: http://localhost:${port}/v1/chat/completions`);
     console.log(`Web UI: http://localhost:${port + 1}`);
-    console.log('\nNexus is ready.\n');
+    console.log('\nMedo is ready.\n');
   } catch (error) {
     console.error('Failed to start gateway:', error);
     process.exit(1);
@@ -137,7 +137,7 @@ async function main(): Promise<void> {
 
   // Graceful shutdown
   const shutdown = async (): Promise<void> => {
-    console.log('\nShutting down Nexus...');
+    console.log('\nShutting down Medo...');
     proactiveWorker.stop();
     skillManager.stopWatching();
     for (const job of cronJobs) {
@@ -146,7 +146,7 @@ async function main(): Promise<void> {
     await telegramChannel.stop();
     await whatsappChannel.stop();
     await app.close();
-    console.log('Nexus stopped.');
+    console.log('Medo stopped.');
     process.exit(0);
   };
 

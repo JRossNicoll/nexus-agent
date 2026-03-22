@@ -21,7 +21,7 @@ export default function Footer() {
                 <path d="M12 2L2 22h20L12 2z" fill="#ff3333" />
                 <path d="M12 9l-3 6h6l-3-6z" fill="#0a0a0a" />
               </svg>
-              <span className="text-lg font-bold text-white">NEXUS</span>
+              <span className="text-lg font-bold text-white">MEDO</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-[#555]">
               The world&apos;s first decentralized cloud computing marketplace, powering the future of AI infrastructure.
@@ -60,7 +60,7 @@ export default function Footer() {
 
         <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-[#1a1a1a] pt-8 sm:flex-row">
           <p className="text-xs text-[#444]">
-            {"NEXUS Network \u00A9 2024. The NEXUS Network Authors. All rights reserved."}
+            {"MEDO Network \u00A9 2024. The MEDO Network Authors. All rights reserved."}
           </p>
           <div className="flex gap-6">
             <Link href="#" className="text-xs text-[#444] transition-colors duration-200 hover:text-[#ff3333]">Privacy Policy</Link>

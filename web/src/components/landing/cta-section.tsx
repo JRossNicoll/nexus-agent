@@ -18,7 +18,7 @@ export default function CtaSection() {
           Ready to meet your AI agent?
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-pretty text-sm leading-relaxed text-[#888] sm:text-base">
-          Start using NEXUS today. Set up in under 5 minutes, connect your preferred AI provider,
+          Start using MEDO today. Set up in under 5 minutes, connect your preferred AI provider,
           and experience an assistant that learns and grows with you.
         </p>
 

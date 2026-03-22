@@ -4,37 +4,37 @@ import { Command } from 'commander';
 import { spawn, execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { loadConfig, getPort, getNexusDir } from '../gateway/config.js';
+import { loadConfig, getPort, getMedoDir } from '../gateway/config.js';
 import { initDatabase, getMemoryStats, searchMemoriesByText, setStructuredMemory, consolidateMemories } from '../memory/database.js';
 
 const program = new Command();
 
 program
-  .name('nexus')
-  .description('NEXUS — Enhanced Personal AI Agent Platform')
+  .name('medo')
+  .description('MEDO — Enhanced Personal AI Agent Platform')
   .version('0.1.0');
 
-// nexus start
+// medo start
 program
   .command('start')
-  .description('Start the Nexus gateway daemon')
+  .description('Start the Medo gateway daemon')
   .option('-f, --foreground', 'Run in foreground instead of daemon mode')
   .action(async (options: { foreground?: boolean }) => {
     const port = getPort();
 
     if (options.foreground) {
-      console.log('Starting Nexus gateway in foreground mode...');
+      console.log('Starting Medo gateway in foreground mode...');
       const entry = path.join(import.meta.dirname ?? __dirname, '../gateway/index.js');
       await import(entry);
       return;
     }
 
-    const pidFile = path.join(getNexusDir(), 'gateway.pid');
+    const pidFile = path.join(getMedoDir(), 'gateway.pid');
     if (fs.existsSync(pidFile)) {
       const pid = parseInt(fs.readFileSync(pidFile, 'utf-8'), 10);
       try {
         process.kill(pid, 0);
-        console.log(`Nexus gateway already running (PID: ${pid})`);
+        console.log(`Medo gateway already running (PID: ${pid})`);
         return;
       } catch {
         // Process not running, clean up stale PID file
@@ -43,7 +43,7 @@ program
     }
 
     const entry = path.join(import.meta.dirname ?? __dirname, '../gateway/index.js');
-    const logFile = path.join(getNexusDir(), 'gateway.log');
+    const logFile = path.join(getMedoDir(), 'gateway.log');
 
     const out = fs.openSync(logFile, 'a');
     const err = fs.openSync(logFile, 'a');
@@ -56,19 +56,19 @@ program
 
     child.unref();
     fs.writeFileSync(pidFile, String(child.pid), 'utf-8');
-    console.log(`Nexus gateway started (PID: ${child.pid})`);
+    console.log(`Medo gateway started (PID: ${child.pid})`);
     console.log(`Listening on http://localhost:${port}`);
     console.log(`Logs: ${logFile}`);
   });
 
-// nexus stop
+// medo stop
 program
   .command('stop')
-  .description('Stop the Nexus gateway daemon')
+  .description('Stop the Medo gateway daemon')
   .action(() => {
-    const pidFile = path.join(getNexusDir(), 'gateway.pid');
+    const pidFile = path.join(getMedoDir(), 'gateway.pid');
     if (!fs.existsSync(pidFile)) {
-      console.log('Nexus gateway is not running');
+      console.log('Medo gateway is not running');
       return;
     }
 
@@ -76,14 +76,14 @@ program
     try {
       process.kill(pid, 'SIGTERM');
       fs.unlinkSync(pidFile);
-      console.log(`Nexus gateway stopped (PID: ${pid})`);
+      console.log(`Medo gateway stopped (PID: ${pid})`);
     } catch {
       console.log('Gateway process not found, cleaning up PID file');
       fs.unlinkSync(pidFile);
     }
   });
 
-// nexus status
+// medo status
 program
   .command('status')
   .description('Show gateway health, connected provider, memory stats')
@@ -92,7 +92,7 @@ program
     try {
       const response = await fetch(`http://localhost:${port}/health`);
       const health = await response.json() as Record<string, unknown>;
-      console.log('\n  NEXUS Gateway Status');
+      console.log('\n  MEDO Gateway Status');
       console.log('  ====================');
       console.log(`  Status:    ${health.status}`);
       console.log(`  Uptime:    ${formatUptime(health.uptime as number)}`);
@@ -107,12 +107,12 @@ program
       console.log(`  Cron Jobs: ${health.activeCronJobs}`);
       console.log(`  Version:   ${health.version}\n`);
     } catch {
-      console.log('Nexus gateway is not running');
+      console.log('Medo gateway is not running');
       console.log(`Expected at http://localhost:${port}`);
     }
   });
 
-// nexus chat — with streaming support
+// medo chat — with streaming support
 program
   .command('chat <message>')
   .description('Send a message and print response to stdout')
@@ -160,12 +160,12 @@ program
         console.log(data.choices[0].message.content);
       }
     } catch {
-      console.error('Failed to connect to Nexus gateway. Is it running?');
+      console.error('Failed to connect to Medo gateway. Is it running?');
       process.exit(1);
     }
   });
 
-// nexus memory
+// medo memory
 const memory = program.command('memory').description('Memory management commands');
 
 memory
@@ -241,14 +241,14 @@ memory
     }
   });
 
-// nexus skill
+// medo skill
 const skill = program.command('skill').description('Skill management commands');
 
 skill
   .command('add <path>')
   .description('Install a skill from a markdown file')
   .action((filePath: string) => {
-    const skillsDir = path.join(getNexusDir(), 'skills');
+    const skillsDir = path.join(getMedoDir(), 'skills');
     if (!fs.existsSync(skillsDir)) {
       fs.mkdirSync(skillsDir, { recursive: true });
     }
@@ -261,7 +261,7 @@ skill
   .command('list')
   .description('List all installed skills')
   .action(() => {
-    const skillsDir = path.join(getNexusDir(), 'skills');
+    const skillsDir = path.join(getMedoDir(), 'skills');
     if (!fs.existsSync(skillsDir)) {
       console.log('No skills installed');
       return;
@@ -278,13 +278,13 @@ skill
     console.log();
   });
 
-// nexus logs
+// medo logs
 program
   .command('logs')
   .description('Tail gateway logs')
   .option('-f, --follow', 'Follow log output')
   .action((options: { follow?: boolean }) => {
-    const logFile = path.join(getNexusDir(), 'gateway.log');
+    const logFile = path.join(getMedoDir(), 'gateway.log');
     if (!fs.existsSync(logFile)) {
       console.log('No log file found');
       return;
@@ -300,12 +300,12 @@ program
     }
   });
 
-// nexus doctor — enhanced diagnostics
+// medo doctor — enhanced diagnostics
 program
   .command('doctor')
   .description('Diagnose configuration issues')
   .action(async () => {
-    console.log('\n  NEXUS Doctor');
+    console.log('\n  MEDO Doctor');
     console.log('  ============\n');
     let passed = 0;
     let failed = 0;
@@ -316,7 +316,7 @@ program
     const warn = (msg: string) => { console.log(`  ○ ${msg}`); warnings++; };
 
     // Check config
-    const configPath = path.join(getNexusDir(), 'config.json');
+    const configPath = path.join(getMedoDir(), 'config.json');
     if (fs.existsSync(configPath)) {
       pass('Config file found');
       try {
@@ -324,14 +324,14 @@ program
         JSON.parse(raw);
         pass('Config file is valid JSON');
       } catch {
-        fail('Config file contains invalid JSON', 'Delete and recreate with "nexus start"');
+        fail('Config file contains invalid JSON', 'Delete and recreate with "medo start"');
       }
     } else {
-      fail('Config file missing', 'Run "nexus start" to create defaults');
+      fail('Config file missing', 'Run "medo start" to create defaults');
     }
 
     // Check database
-    const dbPath = path.join(getNexusDir(), 'memory.db');
+    const dbPath = path.join(getMedoDir(), 'memory.db');
     if (fs.existsSync(dbPath)) {
       const stats = fs.statSync(dbPath);
       pass('Memory database found (' + formatBytes(stats.size) + ')');
@@ -340,7 +340,7 @@ program
     }
 
     // Check skills directory
-    const skillsDir = path.join(getNexusDir(), 'skills');
+    const skillsDir = path.join(getMedoDir(), 'skills');
     if (fs.existsSync(skillsDir)) {
       const skills = fs.readdirSync(skillsDir).filter(f => f.endsWith('.md'));
       pass('Skills directory found (' + skills.length + ' skills)');
@@ -359,7 +359,7 @@ program
 
     // Check disk space
     try {
-      const diskInfo = execSync('df -h ' + getNexusDir() + ' 2>/dev/null | tail -1').toString().trim();
+      const diskInfo = execSync('df -h ' + getMedoDir() + ' 2>/dev/null | tail -1').toString().trim();
       const parts = diskInfo.split(/\s+/);
       if (parts.length >= 4) {
         pass('Disk space: ' + parts[3] + ' available');
@@ -405,7 +405,7 @@ program
         fail('Gateway responded with status ' + response.status);
       }
     } catch {
-      warn('Gateway not running on port ' + port + ' — run "nexus start"');
+      warn('Gateway not running on port ' + port + ' — run "medo start"');
     }
 
     // Check memory accessibility

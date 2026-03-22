@@ -119,8 +119,8 @@ export const skillsAPI = {
 };
 
 export const configAPI = {
-  get: () => fetchAPI<NexusConfig>('/api/config'),
-  update: (data: Partial<NexusConfig>) =>
+  get: () => fetchAPI<MedoConfig>('/api/config'),
+  update: (data: Partial<MedoConfig>) =>
     fetchAPI<{ updated: boolean }>('/api/config', { method: 'PUT', body: JSON.stringify(data) }),
 };
 
@@ -241,7 +241,7 @@ export interface SkillTrigger {
   keyword?: string;
 }
 
-export interface NexusConfig {
+export interface MedoConfig {
   provider: {
     primary: string;
     fallback: string;

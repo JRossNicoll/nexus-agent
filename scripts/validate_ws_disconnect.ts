@@ -273,7 +273,7 @@ async function validateBackoffTiming(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  console.log('=== NEXUS WebSocket Disconnect Integration Test ===');
+  console.log('=== MEDO WebSocket Disconnect Integration Test ===');
 
   await validateCodeStructure();
   await validateRealDisconnectReconnect();

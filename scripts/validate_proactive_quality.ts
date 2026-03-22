@@ -77,8 +77,8 @@ async function main() {
   chatViewSrc.includes('border-l-2') || chatViewSrc.includes('border-left: 2px') ? pass('2px solid blue left border') : fail('2px solid blue left border');
   chatViewSrc.includes('border-l-[var(--accent)]') || chatViewSrc.includes('border-left-color') ? pass('Blue accent left border color') : fail('Blue accent left border color');
 
-  // "NEXUS reached out" label
-  chatViewSrc.includes('NEXUS reached out') ? pass('"NEXUS reached out" label present') : fail('"NEXUS reached out" label present');
+  // "MEDO reached out" label
+  chatViewSrc.includes('MEDO reached out') ? pass('"MEDO reached out" label present') : fail('"MEDO reached out" label present');
 
   // CSS animation
   cssSrc.includes('slideDown') ? pass('slideDown keyframe in CSS') : fail('slideDown keyframe in CSS');

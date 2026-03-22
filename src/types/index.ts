@@ -1,4 +1,4 @@
-export interface NexusConfig {
+export interface MedoConfig {
   provider: ProviderConfig;
   gateway: GatewayConfig;
   memory: MemoryConfig;

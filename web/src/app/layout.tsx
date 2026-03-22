@@ -3,7 +3,7 @@ import './globals.css';
 import QueryProvider from '@/lib/query-provider';
 
 export const metadata: Metadata = {
-  title: 'NEXUS — Personal AI Agent',
+  title: 'MEDO — Personal AI Agent',
   description: 'Your intelligent personal AI assistant with memory, skills, and proactive insights.',
 };
 

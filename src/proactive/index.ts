@@ -211,8 +211,8 @@ export class ProactiveWorker {
   }
 
   private canSendMessage(): boolean {
-    // NEXUS_FORCE_PROACTIVE=true bypasses all timing checks (testing only)
-    if (process.env.NEXUS_FORCE_PROACTIVE === 'true') return true;
+    // MEDO_FORCE_PROACTIVE=true bypasses all timing checks (testing only)
+    if (process.env.MEDO_FORCE_PROACTIVE === 'true') return true;
     this.resetDailyCounter();
     if (this.messagesToday >= this.config.maxPerDay) return false;
     if (!canSendTimingCheck()) return false;

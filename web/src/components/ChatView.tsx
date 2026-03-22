@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Send, Loader2, Bot, User, Copy, Check, ChevronDown, ChevronUp, Zap, ArrowDown, Search, Brain, Globe, Cpu, CheckCircle, AlertCircle, FileText } from "lucide-react";
-import { nexusWS, type WSMessage } from "@/lib/websocket";
+import { medoWS, type WSMessage } from "@/lib/websocket";
 import { cn, formatTimestamp } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -175,13 +175,13 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
 
   useEffect(() => {
     // WebSocket connection is managed at app level (page.tsx) — no connect() call here
-    const unsubConnect = nexusWS.on("connected", () => setConnected(true));
-    const unsubDisconnect = nexusWS.on("disconnected", () => setConnected(false));
-    const unsubHello = nexusWS.on("hello-ok", () => setConnected(true));
+    const unsubConnect = medoWS.on("connected", () => setConnected(true));
+    const unsubDisconnect = medoWS.on("disconnected", () => setConnected(false));
+    const unsubHello = medoWS.on("hello-ok", () => setConnected(true));
     // Sync initial state
-    setConnected(nexusWS.isConnected());
+    setConnected(medoWS.isConnected());
 
-    const unsubStream = nexusWS.on("chat-stream", (msg: WSMessage) => {
+    const unsubStream = medoWS.on("chat-stream", (msg: WSMessage) => {
       const payload = msg.payload as { content: string; done: boolean };
       setMessages(prev => {
         const last = prev[prev.length - 1];
@@ -193,7 +193,7 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
       scrollToBottom();
     });
 
-    const unsubDone = nexusWS.on("chat-done", (msg: WSMessage) => {
+    const unsubDone = medoWS.on("chat-done", (msg: WSMessage) => {
       const payload = msg.payload as { model?: string; provider?: string; latency_ms?: number };
       setMessages(prev => {
         const last = prev[prev.length - 1];
@@ -206,13 +206,13 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
       scrollToBottom();
     });
 
-    const unsubError = nexusWS.on("chat-error", (msg: WSMessage) => {
+    const unsubError = medoWS.on("chat-error", (msg: WSMessage) => {
       const payload = msg.payload as { error: string };
       setMessages(prev => [...prev, { id: String(Date.now()), role: "system", content: `Something went wrong. Please try again.`, timestamp: Date.now() }]);
       setIsStreaming(false);
     });
 
-    const unsubToolCall = nexusWS.on("tool-call", (msg: WSMessage) => {
+    const unsubToolCall = medoWS.on("tool-call", (msg: WSMessage) => {
       const payload = msg.payload as { tool: string; input: Record<string, unknown> };
       setMessages(prev => {
         const last = prev[prev.length - 1];
@@ -224,7 +224,7 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
       });
     });
 
-    const unsubProactive = nexusWS.on("proactive", (msg: WSMessage) => {
+    const unsubProactive = medoWS.on("proactive", (msg: WSMessage) => {
       const payload = msg.payload as { message: string };
       setMessages(prev => [...prev, {
         id: "proactive-" + Date.now(),
@@ -236,7 +236,7 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
       scrollToBottom();
     });
 
-    const unsubTrace = nexusWS.on("execution-trace", (msg: WSMessage) => {
+    const unsubTrace = medoWS.on("execution-trace", (msg: WSMessage) => {
       const payload = msg.payload as { step: string; status: string };
       const newStep: TraceStep = { step: payload.step, status: payload.status as TraceStep["status"], timestamp: Date.now() };
       setTraceSteps(prev => {
@@ -271,7 +271,7 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
       setIsStreaming(true);
       setTraceSteps([]);
       setTraceCollapsed(false);
-      nexusWS.sendChat(pendingMessage);
+      medoWS.sendChat(pendingMessage);
       onPendingConsumed?.();
       scrollToBottom();
     }
@@ -286,10 +286,10 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
     setTraceCollapsed(false);
     // If this is the first message, notify gateway to include onboarding context
     if (isFirstMessage) {
-      nexusWS.send({ type: 'chat', payload: { message: trimmed, channel: 'web', first_message: true } });
+      medoWS.send({ type: 'chat', payload: { message: trimmed, channel: 'web', first_message: true } });
       setIsFirstMessage(false);
     } else {
-      nexusWS.sendChat(trimmed);
+      medoWS.sendChat(trimmed);
     }
     setInput("");
     inputRef.current?.focus();
@@ -317,7 +317,7 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
   /* ── Render message content with ReactMarkdown ── */
   const renderContent = (msg: Message) => {
     return (
-      <div className="nexus-markdown">
+      <div className="medo-markdown">
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
           {msg.content}
         </ReactMarkdown>
@@ -403,7 +403,7 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent)]/10 flex items-center justify-center mb-5 shadow-lg shadow-[var(--accent)]/10">
               <Bot className="w-8 h-8 text-[var(--accent)]" />
             </div>
-            <h2 className="text-lg font-semibold text-white mb-1.5">Welcome to Nexus</h2>
+            <h2 className="text-lg font-semibold text-white mb-1.5">Welcome to Medo</h2>
             <p className="text-sm text-gray-500 max-w-md leading-relaxed">
               Your personal AI agent is ready. Start a conversation, use /commands for skills, or drag and drop files to share.
             </p>
@@ -425,7 +425,7 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
                 : "bg-[var(--bg-surface)] text-gray-200 border border-white/[0.04]")}>
               {msg.isProactive && (
                 <div style={{ position: "absolute", top: 6, right: 10, fontSize: 9, fontFamily: "var(--font-mono)", color: "var(--accent)", opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  NEXUS reached out
+                  MEDO reached out
                 </div>
               )}
               {msg.role === "user" ? (
@@ -505,7 +505,7 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
         <div className="flex gap-2.5 items-end max-w-4xl mx-auto">
           <div className="flex-1 relative">
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-              placeholder="Message Nexus... (/ for commands)" rows={1}
+              placeholder="Message Medo... (/ for commands)" rows={1}
               className="w-full px-4 py-2.5 bg-[var(--bg-surface)] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 text-sm resize-none focus:outline-none focus:border-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--accent)]/20 transition-all"
               style={{"minHeight": "42px", "maxHeight": "200px"}} />
           </div>

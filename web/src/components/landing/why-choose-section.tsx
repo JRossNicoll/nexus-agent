@@ -6,7 +6,7 @@ export default function WhyChooseSection() {
       <div className="relative mx-auto max-w-7xl px-6">
         <div className="mb-16 text-center">
           <h2 className="text-balance text-3xl font-bold text-white sm:text-4xl">
-            Why Choose NEXUS?
+            Why Choose MEDO?
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-sm leading-relaxed text-[#888] sm:text-base">
             An AI assistant that remembers, learns, and acts on your behalf — with complete privacy.
@@ -16,17 +16,17 @@ export default function WhyChooseSection() {
         <div className="grid gap-5 md:grid-cols-2">
           <FeatureCard
             title="Persistent Memory"
-            description="NEXUS remembers your preferences, past conversations, and important details. Memories are stored locally and visualized in a force-directed graph."
+            description="MEDO remembers your preferences, past conversations, and important details. Memories are stored locally and visualized in a force-directed graph."
             iconType="brain"
           />
           <FeatureCard
             title="Smart Skills"
-            description="Create custom skills using plain English. NEXUS generates the automation, installs it, and runs it on schedule or on demand."
+            description="Create custom skills using plain English. MEDO generates the automation, installs it, and runs it on schedule or on demand."
             iconType="rocket"
           />
           <FeatureCard
             title="Proactive Intelligence"
-            description="NEXUS doesn't wait to be asked. It detects patterns, surfaces insights, and sends you briefings — all grounded in your actual data."
+            description="MEDO doesn't wait to be asked. It detects patterns, surfaces insights, and sends you briefings — all grounded in your actual data."
             iconType="shield"
           />
           <FeatureCard

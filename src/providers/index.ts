@@ -1,4 +1,4 @@
-import type { LLMProvider, LLMMessage, LLMOptions, NexusConfig } from '../types/index.js';
+import type { LLMProvider, LLMMessage, LLMOptions, MedoConfig } from '../types/index.js';
 import { AnthropicProvider } from './anthropic.js';
 import { OpenAIProvider } from './openai.js';
 import { OpenRouterProvider } from './openrouter.js';
@@ -8,9 +8,9 @@ import { insertActivity } from '../memory/database.js';
 export class ProviderManager {
   private primary: LLMProvider | null = null;
   private fallback: LLMProvider | null = null;
-  private config: NexusConfig;
+  private config: MedoConfig;
 
-  constructor(config: NexusConfig) {
+  constructor(config: MedoConfig) {
     this.config = config;
     this.initProviders();
   }

@@ -27,7 +27,7 @@ import {
   getToolCalls,
 } from '../src/memory/database.js';
 
-const TEST_DB = '/tmp/nexus-test-memory.db';
+const TEST_DB = '/tmp/medo-test-memory.db';
 let passed = 0;
 let failed = 0;
 

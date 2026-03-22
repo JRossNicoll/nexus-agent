@@ -10,8 +10,8 @@ import type {
   ActivityEntry,
 } from '../types/index.js';
 
-const NEXUS_DIR = path.join(process.env.HOME ?? '~', '.nexus');
-const DB_PATH = path.join(NEXUS_DIR, 'memory.db');
+const MEDO_DIR = path.join(process.env.HOME ?? '~', '.medo');
+const DB_PATH = path.join(MEDO_DIR, 'memory.db');
 
 let db: Database.Database | null = null;
 

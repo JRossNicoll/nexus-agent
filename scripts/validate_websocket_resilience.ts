@@ -33,7 +33,7 @@ async function validateWebSocketModule(): Promise<void> {
   }
 
   // Singleton pattern — single instance exported
-  assert(source.includes('export const nexusWS'), 'Exports singleton nexusWS instance');
+  assert(source.includes('export const medoWS'), 'Exports singleton medoWS instance');
 
   // Exponential backoff
   assert(source.includes('Math.pow(2'), 'Uses exponential backoff formula (Math.pow(2, ...))');
@@ -72,12 +72,12 @@ async function validateAppLevelConnection(): Promise<void> {
   }
 
   // App-level WebSocket connection
-  assert(source.includes('nexusWS.connect()'), 'page.tsx calls nexusWS.connect() at app level');
-  assert(source.includes('useEffect') && source.includes('nexusWS'), 'WebSocket connected in useEffect');
+  assert(source.includes('medoWS.connect()'), 'page.tsx calls medoWS.connect() at app level');
+  assert(source.includes('useEffect') && source.includes('medoWS'), 'WebSocket connected in useEffect');
 
   // Verify persistent connection — no disconnect on unmount
   assert(
-    source.includes("don't disconnect") || source.includes('persistent') || !source.includes('nexusWS.disconnect()'),
+    source.includes("don't disconnect") || source.includes('persistent') || !source.includes('medoWS.disconnect()'),
     'WebSocket connection is persistent (not disconnected on unmount)'
   );
 }
@@ -106,13 +106,13 @@ async function validateNoDisconnectText(): Promise<void> {
   assert(!source.includes('bg-red-500/10 text-red-400') || !source.includes('Disconnected'),
     'No red disconnect banner in ChatView');
 
-  // ChatView should NOT call nexusWS.connect() — managed at app level
-  assert(!source.includes('nexusWS.connect()'),
-    'ChatView does not call nexusWS.connect() (managed at app level)');
+  // ChatView should NOT call medoWS.connect() — managed at app level
+  assert(!source.includes('medoWS.connect()'),
+    'ChatView does not call medoWS.connect() (managed at app level)');
 
   // Check that ChatView syncs initial connection state
-  assert(source.includes('nexusWS.isConnected()'),
-    'ChatView syncs initial connection state from nexusWS.isConnected()');
+  assert(source.includes('medoWS.isConnected()'),
+    'ChatView syncs initial connection state from medoWS.isConnected()');
 
   // Check other views don't show disconnect text
   const viewFiles = ['MemoryView.tsx', 'SkillsView.tsx', 'ActivityView.tsx', 'SettingsView.tsx', 'HomeScreen.tsx'];
@@ -153,7 +153,7 @@ async function validateOrbHandlesReconnection(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  console.log('=== NEXUS WebSocket Resilience Validation ===');
+  console.log('=== MEDO WebSocket Resilience Validation ===');
 
   await validateWebSocketModule();
   await validateAppLevelConnection();

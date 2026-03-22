@@ -11,7 +11,7 @@ export interface WSMessage {
 
 type MessageHandler = (message: WSMessage) => void;
 
-class NexusWebSocket {
+class MedoWebSocket {
   private ws: WebSocket | null = null;
   private handlers: Map<string, Set<MessageHandler>> = new Map();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -115,4 +115,4 @@ class NexusWebSocket {
   }
 }
 
-export const nexusWS = new NexusWebSocket();
+export const medoWS = new MedoWebSocket();

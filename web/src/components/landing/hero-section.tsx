@@ -59,7 +59,7 @@ export default function HeroSection() {
         </h1>
 
         <p className="mx-auto mt-6 max-w-2xl text-pretty text-base leading-relaxed text-[#888] sm:text-lg">
-          NEXUS is an intelligent personal assistant with memory, skills, and proactive insights.
+          MEDO is an intelligent personal assistant with memory, skills, and proactive insights.
           Deploy locally, own your data, and experience AI that truly knows you.
         </p>
 

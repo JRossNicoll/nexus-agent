@@ -84,7 +84,7 @@ async function run() {
   assert(chatViewSrc.includes("import ReactMarkdown"), "ChatView imports ReactMarkdown");
   assert(chatViewSrc.includes("import remarkGfm"), "ChatView imports remarkGfm");
   assert(chatViewSrc.includes("remarkPlugins={[remarkGfm]}"), "ReactMarkdown uses remarkGfm plugin");
-  assert(chatViewSrc.includes("nexus-markdown"), "ReactMarkdown renders inside nexus-markdown wrapper");
+  assert(chatViewSrc.includes("medo-markdown"), "ReactMarkdown renders inside medo-markdown wrapper");
   assert(chatViewSrc.includes("buildMarkdownComponents"), "Custom markdown components are defined");
 
   // ── Section 2: Markdown component style checks ──

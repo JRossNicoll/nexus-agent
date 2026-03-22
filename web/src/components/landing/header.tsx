@@ -25,7 +25,7 @@ export default function Header() {
             <path d="M12 2L2 22h20L12 2z" fill="#ff3333" />
             <path d="M12 9l-3 6h6l-3-6z" fill="#0a0a0a" />
           </svg>
-          <span className="text-base font-bold tracking-tight text-white">NEXUS</span>
+          <span className="text-base font-bold tracking-tight text-white">MEDO</span>
         </Link>
 
         <nav className="hidden items-center gap-7 md:flex">

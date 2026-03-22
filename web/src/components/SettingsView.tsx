@@ -171,7 +171,7 @@ export default function SettingsView() {
         {/* Channels */}
         <div style={sectionStyle}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-1)", marginBottom: 4 }}>Channels</div>
-          <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 16 }}>Connect NEXUS to your messaging apps</div>
+          <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 16 }}>Connect MEDO to your messaging apps</div>
 
           <div style={{ padding: "12px 14px", background: "var(--bg-raised)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -194,7 +194,7 @@ export default function SettingsView() {
         {/* Proactive Intelligence */}
         <div style={sectionStyle}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-1)", marginBottom: 4 }}>Proactive Intelligence</div>
-          <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 16 }}>Control when NEXUS reaches out to you</div>
+          <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 16 }}>Control when MEDO reaches out to you</div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <span style={{ fontSize: 13, color: "var(--text-2)" }}>Enable proactive messages</span>

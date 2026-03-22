@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
-import type { NexusConfig } from '../types/index.js';
+import type { MedoConfig } from '../types/index.js';
 
-const NEXUS_DIR = path.join(process.env.HOME ?? '~', '.nexus');
-const CONFIG_PATH = path.join(NEXUS_DIR, 'config.json');
+const MEDO_DIR = path.join(process.env.HOME ?? '~', '.medo');
+const CONFIG_PATH = path.join(MEDO_DIR, 'config.json');
 
-const DEFAULT_CONFIG: NexusConfig = {
+const DEFAULT_CONFIG: MedoConfig = {
   provider: {
     primary: 'anthropic/claude-sonnet-4-6',
     fallback: 'openai/gpt-4o',
@@ -19,7 +19,7 @@ const DEFAULT_CONFIG: NexusConfig = {
   gateway: {
     port: 18799,
     auth: {
-      token: '${NEXUS_GATEWAY_TOKEN}',
+      token: '${MEDO_GATEWAY_TOKEN}',
     },
   },
   memory: {
@@ -31,8 +31,8 @@ const DEFAULT_CONFIG: NexusConfig = {
   cron: [],
 };
 
-export function loadConfig(): NexusConfig {
-  ensureNexusDir();
+export function loadConfig(): MedoConfig {
+  ensureMedoDir();
 
   if (!fs.existsSync(CONFIG_PATH)) {
     saveConfig(DEFAULT_CONFIG);
@@ -41,7 +41,7 @@ export function loadConfig(): NexusConfig {
 
   try {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
-    const config = JSON.parse(raw) as NexusConfig;
+    const config = JSON.parse(raw) as MedoConfig;
     return { ...DEFAULT_CONFIG, ...config };
   } catch (error) {
     console.error('Failed to load config, using defaults:', error);
@@ -49,8 +49,8 @@ export function loadConfig(): NexusConfig {
   }
 }
 
-export function saveConfig(config: NexusConfig): void {
-  ensureNexusDir();
+export function saveConfig(config: MedoConfig): void {
+  ensureMedoDir();
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
 }
 
@@ -58,18 +58,18 @@ export function getConfigPath(): string {
   return CONFIG_PATH;
 }
 
-export function getNexusDir(): string {
-  return NEXUS_DIR;
+export function getMedoDir(): string {
+  return MEDO_DIR;
 }
 
-function ensureNexusDir(): void {
-  if (!fs.existsSync(NEXUS_DIR)) {
-    fs.mkdirSync(NEXUS_DIR, { recursive: true });
+function ensureMedoDir(): void {
+  if (!fs.existsSync(MEDO_DIR)) {
+    fs.mkdirSync(MEDO_DIR, { recursive: true });
   }
 }
 
 export function getPort(): number {
-  const envPort = process.env.NEXUS_GATEWAY_PORT;
+  const envPort = process.env.MEDO_GATEWAY_PORT;
   if (envPort) {
     const parsed = parseInt(envPort, 10);
     if (!isNaN(parsed)) return parsed;

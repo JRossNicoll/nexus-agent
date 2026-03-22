@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { nexusWS } from "@/lib/websocket";
+import { medoWS } from "@/lib/websocket";
 
 interface CommandPaletteProps {
   onNavigate: (tab: string) => void;
@@ -22,7 +22,7 @@ const navItems: SearchResult[] = [
   { type: "navigate", id: "memory", title: "Memory Graph", subtitle: "View your memories · m", icon: "brain" },
   { type: "navigate", id: "skills", title: "Skills", subtitle: "Manage your skills · s", icon: "zap" },
   { type: "navigate", id: "activity", title: "Activity", subtitle: "View activity feed · a", icon: "activity" },
-  { type: "navigate", id: "settings", title: "Settings", subtitle: "Configure NEXUS", icon: "settings" },
+  { type: "navigate", id: "settings", title: "Settings", subtitle: "Configure MEDO", icon: "settings" },
 ];
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:18799";
@@ -128,7 +128,7 @@ export default function CommandPalette({ onNavigate }: CommandPaletteProps) {
     if (result.type === "navigate") onNavigate(result.id);
     else if (result.type === "skill") fetch(`${GATEWAY}/api/v1/skills/${result.id}/run`, { method: "POST" }).catch(() => {});
     else if (result.type === "memory") onNavigate("memory");
-    else if (result.type === "action") { nexusWS.sendChat(result.title); onNavigate("chat"); }
+    else if (result.type === "action") { medoWS.sendChat(result.title); onNavigate("chat"); }
   };
 
   const groupResults = () => {

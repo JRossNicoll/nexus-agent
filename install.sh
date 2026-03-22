@@ -1,10 +1,10 @@
 #!/bin/bash
-# NEXUS Installer for macOS
+# MEDO Installer for macOS
 # Usage: curl -fsSL https://raw.githubusercontent.com/JRossNicoll/nexus-agent/main/install.sh | bash
 
 set -e
 
-NEXUS_DIR="$HOME/.nexus"
+MEDO_DIR="$HOME/.medo"
 REPO_URL="https://github.com/JRossNicoll/nexus-agent.git"
 
 echo ""
@@ -39,15 +39,15 @@ fi
 echo "Node.js $(node -v) found."
 
 # Clone or update repository
-if [ -d "$NEXUS_DIR/app" ]; then
-  echo "Updating existing NEXUS installation..."
-  cd "$NEXUS_DIR/app"
+if [ -d "$MEDO_DIR/app" ]; then
+  echo "Updating existing MEDO installation..."
+  cd "$MEDO_DIR/app"
   git pull --quiet
 else
-  echo "Downloading NEXUS..."
-  mkdir -p "$NEXUS_DIR"
-  git clone --quiet --depth 1 "$REPO_URL" "$NEXUS_DIR/app"
-  cd "$NEXUS_DIR/app"
+  echo "Downloading MEDO..."
+  mkdir -p "$MEDO_DIR"
+  git clone --quiet --depth 1 "$REPO_URL" "$MEDO_DIR/app"
+  cd "$MEDO_DIR/app"
 fi
 
 # Install dependencies
@@ -59,50 +59,50 @@ echo "Building the web interface..."
 cd web && npm install --silent 2>/dev/null && npm run build --silent 2>/dev/null && cd ..
 
 # Create .env if it doesn't exist
-if [ ! -f "$NEXUS_DIR/app/.env" ]; then
-  cat > "$NEXUS_DIR/app/.env" << 'ENVEOF'
-# NEXUS Configuration
+if [ ! -f "$MEDO_DIR/app/.env" ]; then
+  cat > "$MEDO_DIR/app/.env" << 'ENVEOF'
+# MEDO Configuration
 # Add your API key below during onboarding
 ANTHROPIC_API_KEY=
-NEXUS_GATEWAY_PORT=18799
-NEXUS_WEB_PORT=18800
+MEDO_GATEWAY_PORT=18799
+MEDO_WEB_PORT=18800
 ENVEOF
 fi
 
 # Create launch script
-cat > "$NEXUS_DIR/start.sh" << 'STARTEOF'
+cat > "$MEDO_DIR/start.sh" << 'STARTEOF'
 #!/bin/bash
-cd "$HOME/.nexus/app"
+cd "$HOME/.medo/app"
 source .env 2>/dev/null
-echo "Starting NEXUS..."
+echo "Starting MEDO..."
 npx tsx src/gateway/index.ts &
 GATEWAY_PID=$!
-cd web && npx next start -p ${NEXUS_WEB_PORT:-18800} &
+cd web && npx next start -p ${MEDO_WEB_PORT:-18800} &
 WEB_PID=$!
-echo "NEXUS is running!"
-echo "  Web UI:  http://localhost:${NEXUS_WEB_PORT:-18800}"
-echo "  Gateway: http://localhost:${NEXUS_GATEWAY_PORT:-18799}"
+echo "MEDO is running!"
+echo "  Web UI:  http://localhost:${MEDO_WEB_PORT:-18800}"
+echo "  Gateway: http://localhost:${MEDO_GATEWAY_PORT:-18799}"
 echo ""
 echo "Press Ctrl+C to stop."
 trap "kill $GATEWAY_PID $WEB_PID 2>/dev/null; exit" INT TERM
 wait
 STARTEOF
-chmod +x "$NEXUS_DIR/start.sh"
+chmod +x "$MEDO_DIR/start.sh"
 
 # Create stop script
-cat > "$NEXUS_DIR/stop.sh" << 'STOPEOF'
+cat > "$MEDO_DIR/stop.sh" << 'STOPEOF'
 #!/bin/bash
-pkill -f "nexus-agent/src/gateway" 2>/dev/null
-pkill -f "nexus-agent/web" 2>/dev/null
-echo "NEXUS stopped."
+pkill -f "medo-agent/src/gateway" 2>/dev/null
+pkill -f "medo-agent/web" 2>/dev/null
+echo "MEDO stopped."
 STOPEOF
-chmod +x "$NEXUS_DIR/stop.sh"
+chmod +x "$MEDO_DIR/stop.sh"
 
 echo ""
-echo "NEXUS installed successfully!"
+echo "MEDO installed successfully!"
 echo ""
-echo "To start NEXUS:"
-echo "  ~/.nexus/start.sh"
+echo "To start MEDO:"
+echo "  ~/.medo/start.sh"
 echo ""
 echo "Then open http://localhost:18800 in your browser."
 echo "You'll be guided through setup — no technical knowledge needed."
