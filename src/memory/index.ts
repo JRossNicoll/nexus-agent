@@ -1,0 +1,27 @@
+export {
+  initDatabase,
+  getDatabase,
+  closeDatabase,
+  getDbPath,
+  insertMemory,
+  getMemories,
+  deleteMemory,
+  deleteMemoriesByCategory,
+  updateMemoryAccess,
+  searchMemoriesByText,
+  getMemoryStats,
+  setStructuredMemory,
+  getStructuredMemory,
+  getAllStructuredMemory,
+  deleteStructuredMemory,
+  insertConversation,
+  getConversations,
+  getRecentConversations,
+  insertToolCall,
+  getToolCalls,
+  insertActivity,
+  getActivities,
+  consolidateMemories,
+} from './database.js';
+
+export { EmbeddingService, cosineSimilarity } from './embeddings.js';

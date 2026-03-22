@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.next/
+web/.next/
+web/out/
+web/node_modules/
+*.db
+*.db-journal
+.env
+.env.local
+.nexus/
+*.log
+.DS_Store

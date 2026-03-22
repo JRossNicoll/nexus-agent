@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg-base:     #0c0e12;
+  --bg-surface:  #111318;
+  --bg-raised:   #181b22;
+  --bg-hover:    #1e2229;
+  --bg-input:    #14171e;
+
+  --border:        rgba(255,255,255,0.07);
+  --border-mid:    rgba(255,255,255,0.11);
+  --border-bright: rgba(255,255,255,0.16);
+
+  --text-1: #dde2ec;
+  --text-2: #7e8899;
+  --text-3: #45505f;
+  --text-4: #2c3340;
+
+  --accent:     #2d8cff;
+  --accent-mid: rgba(45,140,255,0.10);
+  --accent-low: rgba(45,140,255,0.06);
+  --accent-glow:rgba(45,140,255,0.20);
+
+  --green:  rgba(74,210,149,0.75);
+  --amber:  rgba(235,185,90,0.75);
+  --red:    rgba(235,100,90,0.7);
+
+  --font-ui:   'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+
+pre {
+  background: var(--bg-raised);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border);
+}
+code {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: 13px;
+}
+pre code { color: var(--text-1); }
+
+select option {
+  background: var(--bg-raised);
+  color: var(--text-1);
+}
+
+/* Utility classes matching design reference */
+.glass { background: rgba(12,14,18,0.6); backdrop-filter: blur(12px); }
