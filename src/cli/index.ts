@@ -112,12 +112,13 @@ program
     }
   });
 
-// nexus chat
+// nexus chat — with streaming support
 program
   .command('chat <message>')
   .description('Send a message and print response to stdout')
   .option('-m, --model <model>', 'Model to use')
-  .action(async (message: string, options: { model?: string }) => {
+  .option('-s, --stream', 'Stream output token by token')
+  .action(async (message: string, options: { model?: string; stream?: boolean }) => {
     const port = getPort();
     try {
       const response = await fetch(`http://localhost:${port}/v1/chat/completions`, {
@@ -126,12 +127,38 @@ program
         body: JSON.stringify({
           messages: [{ role: 'user', content: message }],
           model: options.model,
+          stream: options.stream !== false,
         }),
       });
-      const data = await response.json() as {
-        choices: Array<{ message: { content: string } }>;
-      };
-      console.log(data.choices[0].message.content);
+
+      if (options.stream !== false && response.headers.get('content-type')?.includes('text/event-stream')) {
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No response body');
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+          for (const line of lines) {
+            if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+              try {
+                const chunk = JSON.parse(line.slice(6)) as { choices?: Array<{ delta?: { content?: string } }> };
+                const content = chunk.choices?.[0]?.delta?.content;
+                if (content) process.stdout.write(content);
+              } catch { /* skip parse errors */ }
+            }
+          }
+        }
+        console.log();
+      } else {
+        const data = await response.json() as {
+          choices: Array<{ message: { content: string } }>;
+        };
+        console.log(data.choices[0].message.content);
+      }
     } catch {
       console.error('Failed to connect to Nexus gateway. Is it running?');
       process.exit(1);
@@ -273,72 +300,128 @@ program
     }
   });
 
-// nexus doctor
+// nexus doctor — enhanced diagnostics
 program
   .command('doctor')
   .description('Diagnose configuration issues')
   .action(async () => {
     console.log('\n  NEXUS Doctor');
     console.log('  ============\n');
+    let passed = 0;
+    let failed = 0;
+    let warnings = 0;
+
+    const pass = (msg: string) => { console.log(`  ✓ ${msg}`); passed++; };
+    const fail = (msg: string, fix?: string) => { console.log(`  ✗ ${msg}`); if (fix) console.log(`    Fix: ${fix}`); failed++; };
+    const warn = (msg: string) => { console.log(`  ○ ${msg}`); warnings++; };
 
     // Check config
     const configPath = path.join(getNexusDir(), 'config.json');
     if (fs.existsSync(configPath)) {
-      console.log('  ✓ Config file found');
+      pass('Config file found');
+      try {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        JSON.parse(raw);
+        pass('Config file is valid JSON');
+      } catch {
+        fail('Config file contains invalid JSON', 'Delete and recreate with "nexus start"');
+      }
     } else {
-      console.log('  ✗ Config file missing — run "nexus start" to create defaults');
+      fail('Config file missing', 'Run "nexus start" to create defaults');
     }
 
     // Check database
     const dbPath = path.join(getNexusDir(), 'memory.db');
     if (fs.existsSync(dbPath)) {
-      console.log('  ✓ Memory database found');
+      const stats = fs.statSync(dbPath);
+      pass('Memory database found (' + formatBytes(stats.size) + ')');
     } else {
-      console.log('  ○ Memory database not yet created (will be created on first start)');
+      warn('Memory database not yet created (will be created on first start)');
     }
 
     // Check skills directory
     const skillsDir = path.join(getNexusDir(), 'skills');
     if (fs.existsSync(skillsDir)) {
       const skills = fs.readdirSync(skillsDir).filter(f => f.endsWith('.md'));
-      console.log(`  ✓ Skills directory found (${skills.length} skills)`);
+      pass('Skills directory found (' + skills.length + ' skills)');
     } else {
-      console.log('  ○ Skills directory not found (will be created on first start)');
+      warn('Skills directory not found (will be created on first start)');
     }
 
     // Check Node.js version
     const nodeVersion = process.version;
     const major = parseInt(nodeVersion.slice(1), 10);
     if (major >= 22) {
-      console.log(`  ✓ Node.js ${nodeVersion}`);
+      pass('Node.js ' + nodeVersion);
     } else {
-      console.log(`  ✗ Node.js ${nodeVersion} — requires 22+`);
+      fail('Node.js ' + nodeVersion + ' — requires 22+', 'Install Node.js 22+ from https://nodejs.org');
+    }
+
+    // Check disk space
+    try {
+      const diskInfo = execSync('df -h ' + getNexusDir() + ' 2>/dev/null | tail -1').toString().trim();
+      const parts = diskInfo.split(/\s+/);
+      if (parts.length >= 4) {
+        pass('Disk space: ' + parts[3] + ' available');
+      }
+    } catch {
+      warn('Could not check disk space');
     }
 
     // Check environment variables
     const envVars = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY'];
+    let hasAnyProvider = false;
     for (const v of envVars) {
       if (process.env[v]) {
-        console.log(`  ✓ ${v} set`);
+        pass(v + ' set');
+        hasAnyProvider = true;
       } else {
-        console.log(`  ○ ${v} not set`);
+        warn(v + ' not set');
       }
+    }
+    if (!hasAnyProvider) {
+      fail('No LLM provider API key configured', 'Set at least one: export ANTHROPIC_API_KEY=your-key');
     }
 
     // Check gateway connectivity
     const port = getPort();
     try {
-      const response = await fetch(`http://localhost:${port}/health`);
+      const response = await fetch('http://localhost:' + port + '/health');
       if (response.ok) {
-        console.log(`  ✓ Gateway running on port ${port}`);
+        const health = await response.json() as Record<string, unknown>;
+        pass('Gateway running on port ' + port);
+        const provider = health.provider as Record<string, unknown> | undefined;
+        if (provider?.connected) {
+          pass('Provider connected: ' + String(provider.primary));
+        } else {
+          fail('Provider not connected', 'Check API key configuration');
+        }
+        const channels = health.channels as Record<string, boolean> | undefined;
+        if (channels) {
+          if (channels.telegram) pass('Telegram channel connected');
+          if (channels.whatsapp) pass('WhatsApp channel connected');
+        }
       } else {
-        console.log(`  ✗ Gateway responded with status ${response.status}`);
+        fail('Gateway responded with status ' + response.status);
       }
     } catch {
-      console.log(`  ○ Gateway not running on port ${port}`);
+      warn('Gateway not running on port ' + port + ' — run "nexus start"');
     }
 
-    console.log();
+    // Check memory accessibility
+    if (fs.existsSync(dbPath)) {
+      try {
+        initDatabase();
+        const memStats = getMemoryStats();
+        pass('Memory accessible: ' + memStats.totalMemories + ' memories, ' + memStats.totalConversations + ' conversations');
+      } catch (err: unknown) {
+        const e = err as { message: string };
+        fail('Memory database error: ' + e.message);
+      }
+    }
+
+    console.log('\n  Summary: ' + passed + ' passed, ' + failed + ' failed, ' + warnings + ' warnings\n');
+    if (failed > 0) process.exit(1);
   });
 
 program.parse();

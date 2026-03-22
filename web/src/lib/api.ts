@@ -38,8 +38,12 @@ export const memoryAPI = {
     fetchAPI<{ id: string }>('/api/memories', { method: 'POST', body: JSON.stringify(data) }),
   deleteMemory: (id: string) =>
     fetchAPI<{ deleted: boolean }>(`/api/memories/${id}`, { method: 'DELETE' }),
+  updateMemory: (id: string, data: { content?: string; category?: string; confidence?: number; tags?: string[] }) =>
+    fetchAPI<{ updated: boolean }>('/api/memories/' + id, { method: 'PUT', body: JSON.stringify(data) }),
   consolidate: () =>
     fetchAPI<{ merged: number; flagged: number }>('/api/memories/consolidate', { method: 'POST' }),
+  getGraph: () =>
+    fetchAPI<MemoryGraphData>('/api/memories/graph'),
 };
 
 export const structuredAPI = {
@@ -101,6 +105,23 @@ export const healthAPI = {
   get: () => fetchAPI<HealthResponse>('/health'),
 };
 
+
+export const authAPI = {
+  setup: (pin: string) =>
+    fetchAPI<{ success: boolean }>('/api/auth/setup', { method: 'POST', body: JSON.stringify({ pin }) }),
+  verify: (pin: string) =>
+    fetchAPI<{ authenticated: boolean; noAuthRequired?: boolean }>('/api/auth/verify', { method: 'POST', body: JSON.stringify({ pin }) }),
+};
+
+export const providerAPI = {
+  test: (provider?: string) =>
+    fetchAPI<{ success: boolean; response?: string; error?: string; provider?: string }>('/api/providers/test', { method: 'POST', body: JSON.stringify({ provider }) }),
+};
+
+export const proactiveAPI = {
+  getStatus: () =>
+    fetchAPI<ProactiveStatus>('/api/proactive/status'),
+};
 // Types
 export interface SemanticMemory {
   id: string;
@@ -112,6 +133,8 @@ export interface SemanticMemory {
   last_accessed: number;
   access_count: number;
   tags: string[];
+  conversation_id?: string;
+  channel?: string;
 }
 
 export interface StructuredMemory {
@@ -177,6 +200,7 @@ export interface NexusConfig {
   channels: Record<string, unknown>;
   skills: string[];
   cron: unknown[];
+  proactive?: ProactiveSettings;
 }
 
 export interface HealthResponse {
@@ -196,4 +220,48 @@ export interface HealthResponse {
   activeCronJobs: number;
   channels: Record<string, boolean>;
   version: string;
+}
+
+export interface ProactiveSettings {
+  enabled: boolean;
+  intervalHours: number;
+  confidenceThreshold: number;
+  maxPerDay: number;
+  patternDetection: boolean;
+  dailyBriefing: boolean;
+  smartReminders: boolean;
+  briefingTime: string;
+}
+
+export interface ProactiveStatus {
+  enabled: boolean;
+  patternDetection: boolean;
+  dailyBriefing: boolean;
+  smartReminders: boolean;
+  lastPatternRun?: number;
+  lastBriefing?: number;
+  todayMessageCount: number;
+}
+
+export interface MemoryGraphData {
+  nodes: MemoryGraphNode[];
+  edges: MemoryGraphEdge[];
+}
+
+export interface MemoryGraphNode {
+  id: string;
+  content: string;
+  category: string;
+  confidence: number;
+  source: string;
+  created_at: number;
+  access_count: number;
+  channel?: string;
+  conversation_id?: string;
+}
+
+export interface MemoryGraphEdge {
+  source: string;
+  target: string;
+  weight: number;
 }

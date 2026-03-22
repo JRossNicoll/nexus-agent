@@ -5,6 +5,18 @@ export interface NexusConfig {
   channels: ChannelsConfig;
   skills: string[];
   cron: CronEntry[];
+  proactive?: ProactiveSettingsConfig;
+}
+
+export interface ProactiveSettingsConfig {
+  enabled: boolean;
+  intervalHours: number;
+  confidenceThreshold: number;
+  maxPerDay: number;
+  briefingTime?: string;
+  patternDetection: boolean;
+  dailyBriefing: boolean;
+  smartReminders: boolean;
 }
 
 export interface ProviderConfig {
@@ -17,6 +29,14 @@ export interface GatewayConfig {
   port: number;
   auth: {
     token: string;
+    pin?: string;
+  };
+  cors?: {
+    origins: string[];
+  };
+  execAllowlist?: {
+    commands: string[];
+    directories: string[];
   };
 }
 
@@ -65,6 +85,8 @@ export interface SemanticMemory {
   last_accessed: number;
   access_count: number;
   tags: string[];
+  conversation_id?: string;
+  channel?: string;
 }
 
 export interface StructuredMemory {
@@ -114,7 +136,11 @@ export type WSMessageType =
   | 'activity'
   | 'proactive'
   | 'ping'
-  | 'pong';
+  | 'pong'
+  | 'auth-required'
+  | 'auth-ok'
+  | 'auth-fail'
+  | 'thinking';
 
 export interface WSMessage {
   type: WSMessageType;

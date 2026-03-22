@@ -11,8 +11,15 @@ import {
   getRecentConversations,
 } from '../memory/database.js';
 import { getToolDefinitions } from '../tools/index.js';
+import { ProactiveWorker } from '../proactive/index.js';
 import { randomUUID } from 'crypto';
 import { resolveEnvVar } from './config.js';
+
+let proactiveWorkerRef: ProactiveWorker | null = null;
+
+export function setProactiveWorker(worker: ProactiveWorker): void {
+  proactiveWorkerRef = worker;
+}
 
 interface ConnectedClient {
   ws: WebSocket;
@@ -237,7 +244,14 @@ async function handleChat(
         source: 'conversation',
         confidence: 0.8,
         tags: [],
+        conversation_id: sessionId,
+        channel,
       });
+    }
+
+    // Extract tasks for smart reminders
+    if (proactiveWorkerRef) {
+      proactiveWorkerRef.extractAndStoreTasks(request.message, sessionId, channel);
     }
 
     sendToClient(client, {

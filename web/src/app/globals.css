@@ -5,56 +5,51 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --nexus-primary: #5c7cfa;
-  --nexus-surface-0: #0a0a0f;
-  --nexus-surface-1: #12121a;
-  --nexus-surface-2: #1a1a25;
-  --nexus-surface-3: #222233;
+  --nexus-accent: #6366f1;
+  --nexus-accent-light: #818cf8;
+  --nexus-surface-0: #0a0a12;
+  --nexus-surface-1: #111118;
+  --nexus-surface-2: #1a1a24;
+  --nexus-surface-3: #232330;
+  --nexus-surface-4: #2d2d3d;
 }
 
 body {
   @apply bg-surface-0 text-gray-100 font-sans antialiased;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+::-webkit-scrollbar-thumb { @apply bg-white/10 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-white/20; }
 
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
+pre { @apply bg-surface-1 rounded-lg p-4 overflow-x-auto text-sm font-mono; }
+code { @apply font-mono text-indigo-300; }
+pre code { @apply text-gray-300; }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-700 rounded-full;
-}
+.glass { @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.06]; }
+.glass-hover { @apply hover:bg-white/[0.06] hover:border-white/[0.1]; }
+.focus-ring { @apply focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50; }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-600;
-}
-
-/* Code blocks */
-pre {
-  @apply bg-surface-1 rounded-lg p-4 overflow-x-auto text-sm font-mono;
-}
-
-code {
-  @apply font-mono text-nexus-400;
-}
-
-pre code {
-  @apply text-gray-300;
-}
-
-/* Animations */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes typing-cursor { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes thinking-dot { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+@keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
 .shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
 }
+.typing-cursor { animation: typing-cursor 0.8s ease-in-out infinite; }
+.thinking-dot { animation: thinking-dot 1.4s ease-in-out infinite; }
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1, #818cf8, #a5b4fc);
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+select option { @apply bg-surface-2 text-gray-200; }

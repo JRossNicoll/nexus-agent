@@ -60,7 +60,9 @@ function createTables(database: Database.Database): void {
       created_at INTEGER,
       last_accessed INTEGER,
       access_count INTEGER DEFAULT 0,
-      tags TEXT
+      tags TEXT,
+      conversation_id TEXT,
+      channel TEXT
     );
 
     CREATE TABLE IF NOT EXISTS structured_memory (
@@ -105,14 +107,40 @@ function createTables(database: Database.Database): void {
       session_id TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS pending_tasks (
+      id TEXT PRIMARY KEY,
+      description TEXT NOT NULL,
+      mentioned_at INTEGER,
+      followed_up INTEGER DEFAULT 0,
+      resolved INTEGER DEFAULT 0,
+      session_id TEXT,
+      channel TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS auth (
+      id TEXT PRIMARY KEY DEFAULT 'default',
+      password_hash TEXT NOT NULL,
+      created_at INTEGER
+    );
+
     CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
     CREATE INDEX IF NOT EXISTS idx_memories_source ON memories(source);
+    CREATE INDEX IF NOT EXISTS idx_memories_channel ON memories(channel);
     CREATE INDEX IF NOT EXISTS idx_conversations_session ON conversations(session_id);
     CREATE INDEX IF NOT EXISTS idx_conversations_timestamp ON conversations(timestamp);
     CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id);
     CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_log(timestamp);
     CREATE INDEX IF NOT EXISTS idx_structured_category ON structured_memory(category);
+    CREATE INDEX IF NOT EXISTS idx_pending_tasks_resolved ON pending_tasks(resolved);
   `);
+
+  // Add columns if they don't exist (migration for existing DBs)
+  try {
+    database.exec(`ALTER TABLE memories ADD COLUMN conversation_id TEXT`);
+  } catch { /* column already exists */ }
+  try {
+    database.exec(`ALTER TABLE memories ADD COLUMN channel TEXT`);
+  } catch { /* column already exists */ }
 }
 
 // Semantic memory operations
@@ -122,8 +150,8 @@ export function insertMemory(memory: Omit<SemanticMemory, 'id' | 'created_at' | 
   const now = Date.now();
 
   database.prepare(`
-    INSERT INTO memories (id, content, embedding, category, source, confidence, created_at, last_accessed, access_count, tags)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+    INSERT INTO memories (id, content, embedding, category, source, confidence, created_at, last_accessed, access_count, tags, conversation_id, channel)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
   `).run(
     id,
     memory.content,
@@ -133,7 +161,9 @@ export function insertMemory(memory: Omit<SemanticMemory, 'id' | 'created_at' | 
     memory.confidence,
     now,
     now,
-    JSON.stringify(memory.tags)
+    JSON.stringify(memory.tags),
+    memory.conversation_id ?? null,
+    memory.channel ?? null
   );
 
   return id;
@@ -154,6 +184,42 @@ export function getMemories(limit = 100, offset = 0, category?: string): Semanti
 
   const rows = database.prepare(query).all(...params) as Array<Record<string, unknown>>;
   return rows.map(rowToSemanticMemory);
+}
+
+export function getMemoryById(id: string): SemanticMemory | null {
+  const database = getDatabase();
+  const row = database.prepare('SELECT * FROM memories WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  if (!row) return null;
+  return rowToSemanticMemory(row);
+}
+
+export function updateMemory(id: string, updates: { content?: string; category?: string; confidence?: number; tags?: string[] }): boolean {
+  const database = getDatabase();
+  const sets: string[] = [];
+  const params: unknown[] = [];
+
+  if (updates.content !== undefined) {
+    sets.push('content = ?');
+    params.push(updates.content);
+  }
+  if (updates.category !== undefined) {
+    sets.push('category = ?');
+    params.push(updates.category);
+  }
+  if (updates.confidence !== undefined) {
+    sets.push('confidence = ?');
+    params.push(updates.confidence);
+  }
+  if (updates.tags !== undefined) {
+    sets.push('tags = ?');
+    params.push(JSON.stringify(updates.tags));
+  }
+
+  if (sets.length === 0) return false;
+
+  params.push(id);
+  const result = database.prepare(`UPDATE memories SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+  return result.changes > 0;
 }
 
 export function deleteMemory(id: string): boolean {
@@ -181,6 +247,56 @@ export function searchMemoriesByText(query: string, limit = 10): SemanticMemory[
     SELECT * FROM memories WHERE content LIKE ? ORDER BY created_at DESC LIMIT ?
   `).all(`%${query}%`, limit) as Array<Record<string, unknown>>;
   return rows.map(rowToSemanticMemory);
+}
+
+// Confidence decay: reduce confidence for old, rarely accessed memories
+export function applyConfidenceDecay(): number {
+  const database = getDatabase();
+  const now = Date.now();
+  const oneWeek = 7 * 24 * 60 * 60 * 1000;
+  const result = database.prepare(`
+    UPDATE memories
+    SET confidence = MAX(0.1, confidence - 0.05)
+    WHERE last_accessed < ? AND confidence > 0.1
+  `).run(now - oneWeek);
+  return result.changes;
+}
+
+// Reinforce confidence when memory is accessed
+export function reinforceMemory(id: string): void {
+  const database = getDatabase();
+  database.prepare(`
+    UPDATE memories
+    SET confidence = MIN(1.0, confidence + 0.1),
+        last_accessed = ?,
+        access_count = access_count + 1
+    WHERE id = ?
+  `).run(Date.now(), id);
+}
+
+// Memory graph data: get memories with relationship edges based on shared content
+export function getMemoryGraphData(): { nodes: SemanticMemory[]; edges: Array<{ source: string; target: string; weight: number }> } {
+  const database = getDatabase();
+  const rows = database.prepare('SELECT * FROM memories ORDER BY created_at DESC LIMIT 200').all() as Array<Record<string, unknown>>;
+  const nodes = rows.map(rowToSemanticMemory);
+
+  const edges: Array<{ source: string; target: string; weight: number }> = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const wordsA = new Set(nodes[i].content.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+    for (let j = i + 1; j < nodes.length; j++) {
+      const wordsB = new Set(nodes[j].content.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+      let shared = 0;
+      for (const w of wordsA) {
+        if (wordsB.has(w)) shared++;
+      }
+      const minSize = Math.min(wordsA.size, wordsB.size);
+      if (minSize > 0 && shared / minSize > 0.3) {
+        edges.push({ source: nodes[i].id, target: nodes[j].id, weight: shared / minSize });
+      }
+    }
+  }
+
+  return { nodes, edges };
 }
 
 export function getMemoryStats(): { totalMemories: number; totalConversations: number; totalStructured: number; dbSizeBytes: number } {
@@ -293,6 +409,54 @@ export function getRecentConversations(limit = 20): ConversationMessage[] {
   return rows.map(rowToConversation);
 }
 
+export function getConversationById(id: string): ConversationMessage | null {
+  const database = getDatabase();
+  const row = database.prepare('SELECT * FROM conversations WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  if (!row) return null;
+  return rowToConversation(row);
+}
+
+// Pending tasks (for smart reminders)
+export function insertPendingTask(description: string, sessionId?: string, channel?: string): string {
+  const database = getDatabase();
+  const id = randomUUID();
+  database.prepare(`
+    INSERT INTO pending_tasks (id, description, mentioned_at, followed_up, resolved, session_id, channel)
+    VALUES (?, ?, ?, 0, 0, ?, ?)
+  `).run(id, description, Date.now(), sessionId ?? null, channel ?? null);
+  return id;
+}
+
+export function getPendingTasks(): Array<{ id: string; description: string; mentioned_at: number; followed_up: number; resolved: number }> {
+  const database = getDatabase();
+  return database.prepare('SELECT * FROM pending_tasks WHERE resolved = 0 ORDER BY mentioned_at DESC').all() as Array<{ id: string; description: string; mentioned_at: number; followed_up: number; resolved: number }>;
+}
+
+export function markTaskFollowedUp(id: string): void {
+  const database = getDatabase();
+  database.prepare('UPDATE pending_tasks SET followed_up = 1 WHERE id = ?').run(id);
+}
+
+export function resolveTask(id: string): void {
+  const database = getDatabase();
+  database.prepare('UPDATE pending_tasks SET resolved = 1 WHERE id = ?').run(id);
+}
+
+// Auth operations
+export function getAuthHash(): string | null {
+  const database = getDatabase();
+  const row = database.prepare("SELECT password_hash FROM auth WHERE id = 'default'").get() as { password_hash: string } | undefined;
+  return row?.password_hash ?? null;
+}
+
+export function setAuthHash(hash: string): void {
+  const database = getDatabase();
+  database.prepare(`
+    INSERT OR REPLACE INTO auth (id, password_hash, created_at)
+    VALUES ('default', ?, ?)
+  `).run(hash, Date.now());
+}
+
 // Tool call operations
 export function insertToolCall(call: Omit<ToolCall, 'id'>): string {
   const database = getDatabase();
@@ -388,6 +552,9 @@ export function consolidateMemories(): { merged: number; flagged: number } {
     }
   }
 
+  // Apply confidence decay while we're at it
+  applyConfidenceDecay();
+
   return { merged, flagged };
 }
 
@@ -404,6 +571,8 @@ function rowToSemanticMemory(row: Record<string, unknown>): SemanticMemory {
     last_accessed: row.last_accessed as number,
     access_count: row.access_count as number,
     tags: row.tags ? JSON.parse(row.tags as string) : [],
+    conversation_id: (row.conversation_id as string) ?? undefined,
+    channel: (row.channel as string) ?? undefined,
   };
 }
 

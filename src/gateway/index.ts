@@ -11,7 +11,7 @@ import { SkillManager } from '../skills/index.js';
 import { ProactiveWorker } from '../proactive/index.js';
 import { TelegramChannel } from '../channels/telegram.js';
 import { WhatsAppChannel } from '../channels/whatsapp.js';
-import { setupWebSocket, broadcastToClients } from './websocket.js';
+import { setupWebSocket, broadcastToClients, setProactiveWorker } from './websocket.js';
 import { setupRoutes } from './routes.js';
 import { Cron } from 'croner';
 
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
   });
 
   // Initialize proactive worker
-  const proactiveWorker = new ProactiveWorker(providerManager);
+  const proactiveWorker = ProactiveWorker.fromSettings(providerManager, config.proactive);
   proactiveWorker.setMessageHandler((message, channel) => {
     broadcastToClients({
       type: 'proactive',
@@ -64,8 +64,10 @@ async function main(): Promise<void> {
   });
 
   // Register plugins
+  // CORS: restrict to configured origins or localhost by default
+  const corsOrigins = config.gateway.cors?.origins ?? ['http://localhost:18800', 'http://localhost:18799', 'http://127.0.0.1:18800', 'http://127.0.0.1:18799'];
   await app.register(fastifyCors, {
-    origin: true,
+    origin: corsOrigins,
     credentials: true,
   });
 
@@ -81,11 +83,14 @@ async function main(): Promise<void> {
     });
   }
 
+  // Wire proactive worker to websocket for task extraction
+  setProactiveWorker(proactiveWorker);
+
   // Setup WebSocket handler
   setupWebSocket(app, config, providerManager, skillManager);
 
   // Setup REST routes
-  setupRoutes(app, config, providerManager, skillManager);
+  setupRoutes(app, config, providerManager, skillManager, proactiveWorker as unknown as { getStatus: () => Record<string, unknown>; getConfig: () => Record<string, unknown> });
 
   // Setup cron jobs for skills
   const cronJobs: Cron[] = [];

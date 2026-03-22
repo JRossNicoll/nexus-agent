@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Loader2, Bot, User, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { nexusWS, type WSMessage } from '@/lib/websocket';
-import { cn, formatTimestamp } from '@/lib/utils';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Send, Loader2, Bot, User, Copy, Check, ChevronDown, ChevronUp, Zap, ArrowDown } from "lucide-react";
+import { nexusWS, type WSMessage } from "@/lib/websocket";
+import { cn, formatTimestamp } from "@/lib/utils";
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   timestamp: number;
   model?: string;
@@ -26,57 +26,50 @@ interface ToolCallInfo {
 
 export default function ChatView() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [connected, setConnected] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    setShowScrollBtn(!atBottom);
   }, []);
 
   useEffect(() => {
     nexusWS.connect();
+    const unsubConnect = nexusWS.on("connected", () => setConnected(true));
+    const unsubDisconnect = nexusWS.on("disconnected", () => setConnected(false));
+    const unsubHello = nexusWS.on("hello-ok", () => setConnected(true));
 
-    const unsubConnect = nexusWS.on('connected', () => setConnected(true));
-    const unsubDisconnect = nexusWS.on('disconnected', () => setConnected(false));
-    const unsubHello = nexusWS.on('hello-ok', () => setConnected(true));
-
-    const unsubStream = nexusWS.on('chat-stream', (msg: WSMessage) => {
+    const unsubStream = nexusWS.on("chat-stream", (msg: WSMessage) => {
       const payload = msg.payload as { content: string; done: boolean };
       setMessages(prev => {
         const last = prev[prev.length - 1];
         if (last?.streaming) {
-          return [
-            ...prev.slice(0, -1),
-            { ...last, content: last.content + payload.content },
-          ];
+          return [...prev.slice(0, -1), { ...last, content: last.content + payload.content }];
         }
-        return [
-          ...prev,
-          {
-            id: msg.id || String(Date.now()),
-            role: 'assistant',
-            content: payload.content,
-            timestamp: Date.now(),
-            streaming: true,
-          },
-        ];
+        return [...prev, { id: msg.id || String(Date.now()), role: "assistant", content: payload.content, timestamp: Date.now(), streaming: true }];
       });
       scrollToBottom();
     });
 
-    const unsubDone = nexusWS.on('chat-done', (msg: WSMessage) => {
+    const unsubDone = nexusWS.on("chat-done", (msg: WSMessage) => {
       const payload = msg.payload as { model?: string; provider?: string; latency_ms?: number };
       setMessages(prev => {
         const last = prev[prev.length - 1];
         if (last?.streaming) {
-          return [
-            ...prev.slice(0, -1),
-            { ...last, streaming: false, model: payload.model, provider: payload.provider, latency_ms: payload.latency_ms },
-          ];
+          return [...prev.slice(0, -1), { ...last, streaming: false, model: payload.model, provider: payload.provider, latency_ms: payload.latency_ms }];
         }
         return prev;
       });
@@ -84,25 +77,17 @@ export default function ChatView() {
       scrollToBottom();
     });
 
-    const unsubError = nexusWS.on('chat-error', (msg: WSMessage) => {
+    const unsubError = nexusWS.on("chat-error", (msg: WSMessage) => {
       const payload = msg.payload as { error: string };
-      setMessages(prev => [
-        ...prev,
-        {
-          id: String(Date.now()),
-          role: 'system',
-          content: `Error: ${payload.error}`,
-          timestamp: Date.now(),
-        },
-      ]);
+      setMessages(prev => [...prev, { id: String(Date.now()), role: "system", content: `Error: ${payload.error}`, timestamp: Date.now() }]);
       setIsStreaming(false);
     });
 
-    const unsubToolCall = nexusWS.on('tool-call', (msg: WSMessage) => {
+    const unsubToolCall = nexusWS.on("tool-call", (msg: WSMessage) => {
       const payload = msg.payload as { tool: string; input: Record<string, unknown> };
       setMessages(prev => {
         const last = prev[prev.length - 1];
-        if (last?.role === 'assistant') {
+        if (last?.role === "assistant") {
           const toolCalls = [...(last.toolCalls || []), { tool: payload.tool, input: payload.input }];
           return [...prev.slice(0, -1), { ...last, toolCalls }];
         }
@@ -110,58 +95,28 @@ export default function ChatView() {
       });
     });
 
-    const unsubProactive = nexusWS.on('proactive', (msg: WSMessage) => {
+    const unsubProactive = nexusWS.on("proactive", (msg: WSMessage) => {
       const payload = msg.payload as { message: string };
-      setMessages(prev => [
-        ...prev,
-        {
-          id: String(Date.now()),
-          role: 'assistant',
-          content: payload.message,
-          timestamp: Date.now(),
-        },
-      ]);
+      setMessages(prev => [...prev, { id: String(Date.now()), role: "assistant", content: payload.message, timestamp: Date.now() }]);
       scrollToBottom();
     });
 
-    return () => {
-      unsubConnect();
-      unsubDisconnect();
-      unsubHello();
-      unsubStream();
-      unsubDone();
-      unsubError();
-      unsubToolCall();
-      unsubProactive();
-    };
+    return () => { unsubConnect(); unsubDisconnect(); unsubHello(); unsubStream(); unsubDone(); unsubError(); unsubToolCall(); unsubProactive(); };
   }, [scrollToBottom]);
 
   const sendMessage = () => {
     const trimmed = input.trim();
     if (!trimmed || isStreaming) return;
-
-    setMessages(prev => [
-      ...prev,
-      {
-        id: String(Date.now()),
-        role: 'user',
-        content: trimmed,
-        timestamp: Date.now(),
-      },
-    ]);
-
+    setMessages(prev => [...prev, { id: String(Date.now()), role: "user", content: trimmed, timestamp: Date.now() }]);
     setIsStreaming(true);
     nexusWS.sendChat(trimmed);
-    setInput('');
+    setInput("");
     inputRef.current?.focus();
     scrollToBottom();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
   const copyToClipboard = async (text: string, id: string) => {
@@ -171,56 +126,49 @@ export default function ChatView() {
   };
 
   const toggleToolCall = (msgIdx: number, toolIdx: number) => {
-    setMessages(prev =>
-      prev.map((msg, i) => {
-        if (i !== msgIdx || !msg.toolCalls) return msg;
-        const toolCalls = msg.toolCalls.map((tc, j) =>
-          j === toolIdx ? { ...tc, expanded: !tc.expanded } : tc
-        );
-        return { ...msg, toolCalls };
-      })
-    );
+    setMessages(prev => prev.map((msg, i) => {
+      if (i !== msgIdx || !msg.toolCalls) return msg;
+      const toolCalls = msg.toolCalls.map((tc, j) => j === toolIdx ? { ...tc, expanded: !tc.expanded } : tc);
+      return { ...msg, toolCalls };
+    }));
   };
 
   const renderContent = (content: string) => {
-    // Simple markdown-like rendering for code blocks
     const parts = content.split(/(```[\s\S]*?```)/g);
     return parts.map((part, i) => {
-      if (part.startsWith('```') && part.endsWith('```')) {
+      if (part.startsWith("```") && part.endsWith("```")) {
         const lines = part.slice(3, -3);
-        const firstNewline = lines.indexOf('\n');
-        const lang = firstNewline > 0 ? lines.slice(0, firstNewline).trim() : '';
+        const firstNewline = lines.indexOf("\n");
+        const lang = firstNewline > 0 ? lines.slice(0, firstNewline).trim() : "";
         const code = firstNewline > 0 ? lines.slice(firstNewline + 1) : lines;
         return (
-          <pre key={i} className="my-3 relative group">
+          <div key={i} className="my-3 relative group">
             {lang && (
-              <div className="text-xs text-gray-500 mb-2">{lang}</div>
+              <div className="flex items-center justify-between px-4 py-1.5 bg-surface-3/50 rounded-t-lg border-b border-white/[0.04]">
+                <span className="text-[11px] font-mono text-gray-500 uppercase tracking-wider">{lang}</span>
+                <button onClick={() => copyToClipboard(code, `code-${i}`)} className="p-1 rounded text-gray-500 hover:text-gray-300 transition-colors">
+                  {copiedId === `code-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                </button>
+              </div>
             )}
-            <code>{code}</code>
-            <button
-              onClick={() => copyToClipboard(code, `code-${i}`)}
-              className="absolute top-2 right-2 p-1.5 rounded bg-surface-3 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              {copiedId === `code-${i}` ? (
-                <Check className="w-3.5 h-3.5 text-green-400" />
-              ) : (
-                <Copy className="w-3.5 h-3.5 text-gray-400" />
-              )}
-            </button>
-          </pre>
+            <pre className={cn("!mt-0", lang ? "!rounded-t-none" : "")}>
+              <code>{code}</code>
+            </pre>
+            {!lang && (
+              <button onClick={() => copyToClipboard(code, `code-${i}`)}
+                className="absolute top-2 right-2 p-1.5 rounded bg-surface-3/80 opacity-0 group-hover:opacity-100 transition-opacity">
+                {copiedId === `code-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-gray-400" />}
+              </button>
+            )}
+          </div>
         );
       }
-      // Handle inline code
       const inlineParts = part.split(/(`[^`]+`)/g);
       return (
         <span key={i}>
           {inlineParts.map((ip, j) => {
-            if (ip.startsWith('`') && ip.endsWith('`')) {
-              return (
-                <code key={j} className="px-1.5 py-0.5 bg-surface-3 rounded text-sm text-nexus-300">
-                  {ip.slice(1, -1)}
-                </code>
-              );
+            if (ip.startsWith("`") && ip.endsWith("`")) {
+              return <code key={j} className="px-1.5 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded text-[13px] text-indigo-300">{ip.slice(1, -1)}</code>;
             }
             return <span key={j}>{ip}</span>;
           })}
@@ -230,117 +178,95 @@ export default function ChatView() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 h-14 border-b border-gray-800/50 bg-surface-1/50 backdrop-blur-sm">
+      <div className="flex items-center justify-between px-6 h-12 border-b border-white/[0.06] glass">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-white">Chat</h1>
-          <div className={cn(
-            'flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs',
-            connected ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-          )}>
-            <div className={cn(
-              'w-1.5 h-1.5 rounded-full',
-              connected ? 'bg-green-400' : 'bg-red-400'
-            )} />
-            {connected ? 'Connected' : 'Disconnected'}
+          <h1 className="text-sm font-semibold text-white">Chat</h1>
+          <div className={cn("flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px]",
+            connected ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+            <div className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-400" : "bg-red-400")} />
+            {connected ? "Connected" : "Disconnected"}
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-nexus-600/10 flex items-center justify-center mb-4">
-              <Bot className="w-8 h-8 text-nexus-400" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center mb-5 shadow-lg shadow-indigo-500/10">
+              <Bot className="w-8 h-8 text-indigo-400" />
             </div>
-            <h2 className="text-xl font-semibold text-white mb-2">Welcome to Nexus</h2>
-            <p className="text-gray-400 max-w-md">
-              Your personal AI agent is ready. Start a conversation, use /commands for skills,
-              or drag and drop files to share.
+            <h2 className="text-lg font-semibold text-white mb-1.5">Welcome to Nexus</h2>
+            <p className="text-sm text-gray-500 max-w-md leading-relaxed">
+              Your personal AI agent is ready. Start a conversation, use /commands for skills, or drag and drop files to share.
             </p>
           </div>
         )}
 
         {messages.map((msg, idx) => (
-          <div
-            key={msg.id}
-            className={cn(
-              'flex gap-3 animate-fade-in',
-              msg.role === 'user' ? 'justify-end' : 'justify-start'
-            )}
-          >
-            {msg.role !== 'user' && (
-              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-nexus-600/20 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-nexus-400" />
+          <div key={msg.id} className={cn("flex gap-3 animate-fade-in max-w-4xl mx-auto", msg.role === "user" ? "justify-end" : "justify-start")}>
+            {msg.role !== "user" && (
+              <div className={cn("flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5",
+                msg.role === "system" ? "bg-red-500/10" : "bg-indigo-500/15")}>
+                <Bot className={cn("w-4 h-4", msg.role === "system" ? "text-red-400" : "text-indigo-400")} />
               </div>
             )}
-
-            <div className={cn(
-              'max-w-2xl rounded-xl px-4 py-3',
-              msg.role === 'user'
-                ? 'bg-nexus-600/20 text-white'
-                : msg.role === 'system'
-                ? 'bg-red-500/10 text-red-300'
-                : 'bg-surface-2 text-gray-200'
-            )}>
+            <div className={cn("max-w-2xl rounded-xl px-4 py-2.5",
+              msg.role === "user" ? "bg-indigo-500/15 text-white border border-indigo-500/20"
+                : msg.role === "system" ? "bg-red-500/10 text-red-300 border border-red-500/20"
+                : "bg-surface-2 text-gray-200 border border-white/[0.04]")}>
               <div className="text-sm leading-relaxed whitespace-pre-wrap">
                 {renderContent(msg.content)}
-                {msg.streaming && (
-                  <span className="inline-block w-2 h-4 bg-nexus-400 animate-pulse-soft ml-0.5" />
-                )}
+                {msg.streaming && <span className="inline-block w-[2px] h-4 bg-indigo-400 typing-cursor ml-0.5 align-middle" />}
               </div>
-
+              {/* Thinking dots */}
+              {msg.streaming && !msg.content && (
+                <div className="flex items-center gap-1.5 py-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 thinking-dot" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 thinking-dot" style={{"animationDelay": "0.2s"}} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 thinking-dot" style={{"animationDelay": "0.4s"}} />
+                </div>
+              )}
               {/* Tool calls */}
               {msg.toolCalls && msg.toolCalls.length > 0 && (
-                <div className="mt-3 space-y-2">
+                <div className="mt-2.5 space-y-1.5">
                   {msg.toolCalls.map((tc, tIdx) => (
-                    <div key={tIdx} className="border border-gray-700/50 rounded-lg overflow-hidden">
-                      <button
-                        onClick={() => toggleToolCall(idx, tIdx)}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-xs text-gray-400 hover:bg-surface-3 transition-colors"
-                      >
+                    <div key={tIdx} className="border border-white/[0.06] rounded-lg overflow-hidden bg-surface-1/50">
+                      <button onClick={() => toggleToolCall(idx, tIdx)}
+                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:bg-white/[0.03] transition-colors">
                         <Zap className="w-3 h-3 text-amber-400" />
-                        <span className="font-mono">{tc.tool}</span>
+                        <span className="font-mono text-amber-300/80">{tc.tool}</span>
                         {tc.expanded ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
                       </button>
                       {tc.expanded && (
-                        <div className="px-3 py-2 bg-surface-1 text-xs font-mono text-gray-400 border-t border-gray-700/50">
-                          <div className="text-gray-500 mb-1">Input:</div>
-                          <pre className="text-gray-300 whitespace-pre-wrap">{JSON.stringify(tc.input, null, 2)}</pre>
-                          {tc.output && (
-                            <>
-                              <div className="text-gray-500 mt-2 mb-1">Output:</div>
-                              <pre className="text-gray-300 whitespace-pre-wrap">{tc.output}</pre>
-                            </>
-                          )}
+                        <div className="px-3 py-2 bg-surface-1 text-xs font-mono text-gray-400 border-t border-white/[0.06]">
+                          <div className="text-gray-600 mb-1 text-[10px] uppercase tracking-wider">Input</div>
+                          <pre className="text-gray-300 whitespace-pre-wrap text-[11px]">{JSON.stringify(tc.input, null, 2)}</pre>
+                          {tc.output && (<><div className="text-gray-600 mt-2 mb-1 text-[10px] uppercase tracking-wider">Output</div>
+                            <pre className="text-gray-300 whitespace-pre-wrap text-[11px]">{tc.output}</pre></>)}
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
               )}
-
-              {/* Message metadata */}
-              <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+              {/* Metadata */}
+              <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-600">
                 <span>{formatTimestamp(msg.timestamp)}</span>
-                {msg.model && <span className="font-mono">{msg.model}</span>}
+                {msg.model && <span className="font-mono text-gray-500">{msg.model}</span>}
                 {msg.latency_ms && <span>{msg.latency_ms}ms</span>}
-                {msg.role === 'assistant' && !msg.streaming && (
-                  <button
-                    onClick={() => copyToClipboard(msg.content, msg.id)}
-                    className="hover:text-gray-300 transition-colors"
-                  >
-                    {copiedId === msg.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                {msg.role === "assistant" && !msg.streaming && (
+                  <button onClick={() => copyToClipboard(msg.content, msg.id)} className="hover:text-gray-400 transition-colors">
+                    {copiedId === msg.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
                   </button>
                 )}
               </div>
             </div>
-
-            {msg.role === 'user' && (
-              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-700/50 flex items-center justify-center">
-                <User className="w-4 h-4 text-gray-300" />
+            {msg.role === "user" && (
+              <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-surface-3 flex items-center justify-center mt-0.5">
+                <User className="w-4 h-4 text-gray-400" />
               </div>
             )}
           </div>
@@ -348,47 +274,34 @@ export default function ChatView() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Scroll indicator */}
+      {showScrollBtn && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10">
+          <button onClick={scrollToBottom}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-3/90 backdrop-blur border border-white/[0.1] rounded-full text-xs text-gray-300 hover:bg-surface-4 transition-colors shadow-lg">
+            <ArrowDown className="w-3 h-3" /> New messages
+          </button>
+        </div>
+      )}
+
       {/* Input */}
-      <div className="px-6 py-4 border-t border-gray-800/50 bg-surface-1/50 backdrop-blur-sm">
-        <div className="flex gap-3 items-end max-w-4xl mx-auto">
+      <div className="px-4 py-3 border-t border-white/[0.06] glass">
+        <div className="flex gap-2.5 items-end max-w-4xl mx-auto">
           <div className="flex-1 relative">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Message Nexus... (/ for commands)"
-              rows={1}
-              className="w-full px-4 py-3 bg-surface-2 border border-gray-700/50 rounded-xl text-white placeholder-gray-500 resize-none focus:outline-none focus:border-nexus-500/50 focus:ring-1 focus:ring-nexus-500/20 transition-all"
-              style={{ minHeight: '48px', maxHeight: '200px' }}
-            />
+            <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+              placeholder="Message Nexus... (/ for commands)" rows={1}
+              className="w-full px-4 py-2.5 bg-surface-2 border border-white/[0.08] rounded-xl text-white placeholder-gray-600 text-sm resize-none focus:outline-none focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+              style={{"minHeight": "42px", "maxHeight": "200px"}} />
           </div>
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || isStreaming}
-            className={cn(
-              'flex items-center justify-center w-12 h-12 rounded-xl transition-all',
+          <button onClick={sendMessage} disabled={!input.trim() || isStreaming}
+            className={cn("flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200",
               input.trim() && !isStreaming
-                ? 'bg-nexus-600 hover:bg-nexus-500 text-white'
-                : 'bg-surface-3 text-gray-600 cursor-not-allowed'
-            )}
-          >
-            {isStreaming ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
+                ? "bg-indigo-500 hover:bg-indigo-400 text-white shadow-lg shadow-indigo-500/25"
+                : "bg-surface-3 text-gray-600 cursor-not-allowed")}>
+            {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
         </div>
       </div>
     </div>
-  );
-}
-
-function Zap(props: React.SVGProps<SVGSVGElement> & { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
   );
 }

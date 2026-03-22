@@ -16,6 +16,10 @@ export interface ToolContext {
   config: NexusConfig;
   sessionId: string;
   workspaceDir?: string;
+  execAllowlist?: {
+    commands: string[];
+    directories: string[];
+  };
 }
 
 export type ToolHandler = (args: Record<string, unknown>, ctx: ToolContext) => Promise<string>;
@@ -26,6 +30,26 @@ const toolHandlers: Record<string, ToolHandler> = {};
 toolHandlers['exec'] = async (args, ctx) => {
   const command = args.command as string;
   const timeout = (args.timeout as number) ?? 30000;
+
+  // Exec allowlist validation
+  const allowlist = ctx.execAllowlist ?? ctx.config.gateway.execAllowlist;
+  if (allowlist) {
+    const baseCmd = command.split(/\s+/)[0];
+    if (allowlist.commands.length > 0 && !allowlist.commands.some(c => baseCmd === c || baseCmd.endsWith('/' + c))) {
+      const msg = 'Command not in allowlist: ' + baseCmd;
+      logToolCall(ctx.sessionId, 'exec', JSON.stringify(args), msg, 0, false);
+      return 'Error: ' + msg;
+    }
+    if (allowlist.directories.length > 0) {
+      const cwd = ctx.workspaceDir ?? process.env.HOME ?? '';
+      const allowed = allowlist.directories.some(d => cwd.startsWith(d));
+      if (!allowed) {
+        const msg = 'Working directory not in allowed directories: ' + cwd;
+        logToolCall(ctx.sessionId, 'exec', JSON.stringify(args), msg, 0, false);
+        return 'Error: ' + msg;
+      }
+    }
+  }
 
   const start = Date.now();
   try {

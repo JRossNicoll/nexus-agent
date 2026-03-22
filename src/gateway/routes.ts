@@ -5,21 +5,31 @@ import { SkillManager } from '../skills/index.js';
 import {
   getMemoryStats,
   getMemories,
+  getMemoryById,
+  updateMemory,
   deleteMemory,
   deleteMemoriesByCategory,
   insertMemory,
   searchMemoriesByText,
+  getMemoryGraphData,
+  applyConfidenceDecay,
   getAllStructuredMemory,
   getStructuredMemory,
   setStructuredMemory,
   deleteStructuredMemory,
   getConversations,
+  getConversationById,
   getRecentConversations,
   insertConversation,
   getActivities,
   getToolCalls,
   consolidateMemories,
+  getAuthHash,
+  setAuthHash,
+  getPendingTasks,
+  resolveTask,
 } from '../memory/database.js';
+import bcrypt from 'bcryptjs';
 import { getConnectedClientsCount, broadcastToClients } from './websocket.js';
 import { randomUUID } from 'crypto';
 
@@ -30,6 +40,7 @@ export function setupRoutes(
   config: NexusConfig,
   providerManager: ProviderManager,
   skillManager: SkillManager,
+  proactiveWorker?: { getStatus: () => Record<string, unknown>; getConfig: () => Record<string, unknown> },
 ): void {
   // Health endpoint
   app.get('/health', async () => {
@@ -239,6 +250,43 @@ export function setupRoutes(
     return result;
   });
 
+  // Memory graph endpoint
+  app.get('/api/memories/graph', async () => {
+    return getMemoryGraphData();
+  });
+
+  // Update a memory
+  app.put<{ Params: { id: string } }>('/api/memories/:id', async (request) => {
+    const body = request.body as {
+      content?: string;
+      category?: string;
+      confidence?: number;
+      tags?: string[];
+    };
+    const updated = updateMemory(request.params.id, body);
+    return { updated };
+  });
+
+  // Get a single memory by ID
+  app.get<{ Params: { id: string } }>('/api/memories/:id', async (request) => {
+    const memory = getMemoryById(request.params.id);
+    if (!memory) return { error: 'Not found' };
+    return memory;
+  });
+
+  // Get conversation by ID (for provenance)
+  app.get<{ Params: { id: string } }>('/api/conversations/:id', async (request) => {
+    const conv = getConversationById(request.params.id);
+    if (!conv) return { error: 'Not found' };
+    return conv;
+  });
+
+  // Apply confidence decay
+  app.post('/api/memories/decay', async () => {
+    const affected = applyConfidenceDecay();
+    return { affected };
+  });
+
   // Structured memory
   app.get('/api/structured', async (request) => {
     const query = request.query as { category?: string };
@@ -381,5 +429,64 @@ export function setupRoutes(
       connectedClients: getConnectedClientsCount(),
       uptime: Date.now() - startTime,
     };
+  });
+
+  // Pending tasks
+  app.get('/api/tasks', async () => {
+    return getPendingTasks();
+  });
+
+  app.post<{ Params: { id: string } }>('/api/tasks/:id/resolve', async (request) => {
+    resolveTask(request.params.id);
+    return { resolved: true };
+  });
+
+  // Auth endpoints
+  app.post('/api/auth/setup', async (request) => {
+    const body = request.body as { pin: string };
+    if (!body.pin || body.pin.length < 4) {
+      return { error: 'PIN must be at least 4 characters' };
+    }
+    const hash = bcrypt.hashSync(body.pin, 10);
+    setAuthHash(hash);
+    return { success: true };
+  });
+
+  app.post('/api/auth/verify', async (request) => {
+    const body = request.body as { pin: string };
+    const hash = getAuthHash();
+    if (!hash) {
+      return { authenticated: true, noAuthRequired: true };
+    }
+    const valid = bcrypt.compareSync(body.pin, hash);
+    return { authenticated: valid };
+  });
+
+  app.get('/api/auth/status', async () => {
+    const hash = getAuthHash();
+    return { authConfigured: !!hash };
+  });
+
+  // Proactive status
+  app.get('/api/proactive/status', async () => {
+    if (proactiveWorker) {
+      return proactiveWorker.getStatus();
+    }
+    return { enabled: false };
+  });
+
+  // Provider test endpoint
+  app.post('/api/providers/test', async (request) => {
+    const body = request.body as { provider?: string };
+    try {
+      const response = await providerManager.chatComplete(
+        [{ role: 'user', content: 'Say hello in exactly one word.' }],
+        { max_tokens: 10 },
+      );
+      return { success: true, response: response.slice(0, 100), provider: body.provider ?? config.provider.primary };
+    } catch (error: unknown) {
+      const err = error as { message: string };
+      return { success: false, error: err.message };
+    }
   });
 }
