@@ -173,7 +173,7 @@ export default function MemoryView() {
         content: m.content,
         category: m.category || "fact",
         confidence: m.confidence || 0.5,
-        usage_count: m.usage_count || 0,
+        usage_count: m.access_count || m.usage_count || 0,
         cluster: clusterMap.get(m.id),
       }));
       nodesRef.current = nodes;
