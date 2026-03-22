@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Loader2, Bot, User, Copy, Check, ChevronDown, ChevronUp, Zap, ArrowDown, Search, Brain, Globe, Cpu, CheckCircle, AlertCircle } from "lucide-react";
+import { Send, Loader2, Bot, User, Copy, Check, ChevronDown, ChevronUp, Zap, ArrowDown, Search, Brain, Globe, Cpu, CheckCircle, AlertCircle, FileText } from "lucide-react";
 import { nexusWS, type WSMessage } from "@/lib/websocket";
 import { cn, formatTimestamp } from "@/lib/utils";
 
@@ -275,12 +275,16 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
                     step.status === "active" ? "text-[var(--accent)]" : step.status === "done" ? "text-gray-500" : "text-red-400")}>
                     {step.status === "active" ? (
                       <div className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0">
-                        {step.step.toLowerCase().includes("search") || step.step.toLowerCase().includes("memor") ? (
+                        {step.step.toLowerCase().includes("memory") || step.step.toLowerCase().includes("memory_read") ? (
                           <Brain className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                        ) : step.step.toLowerCase().includes("web") || step.step.toLowerCase().includes("generat") ? (
-                          <Globe className="w-3.5 h-3.5 text-[var(--accent)] animate-pulse" />
-                        ) : step.step.toLowerCase().includes("analyz") ? (
+                        ) : step.step.toLowerCase().includes("web_search") || step.step.toLowerCase().includes("web") ? (
                           <Search className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                        ) : step.step.toLowerCase().includes("file_read") || step.step.toLowerCase().includes("file") ? (
+                          <FileText className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+                        ) : step.step.toLowerCase().includes("skill") ? (
+                          <Zap className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
+                        ) : step.step.toLowerCase().includes("generat") ? (
+                          <Globe className="w-3.5 h-3.5 text-[var(--accent)] animate-pulse" />
                         ) : (
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent)]" />
                         )}
@@ -359,7 +363,11 @@ export default function ChatView({ pendingMessage, onPendingConsumed }: ChatView
                     <div key={tIdx} className="border border-white/[0.06] rounded-lg overflow-hidden bg-[var(--bg-surface)]">
                       <button onClick={() => toggleToolCall(idx, tIdx)}
                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:bg-white/[0.03] transition-colors">
-                        <Zap className="w-3 h-3 text-amber-400" />
+                        {tc.tool.includes("memory") ? <Brain className="w-3 h-3 text-emerald-400" />
+                          : tc.tool.includes("web_search") || tc.tool.includes("search") ? <Search className="w-3 h-3 text-amber-400" />
+                          : tc.tool.includes("file") || tc.tool.includes("read") ? <FileText className="w-3 h-3 text-blue-400" />
+                          : tc.tool.includes("skill") ? <Zap className="w-3 h-3 text-yellow-400" />
+                          : <Zap className="w-3 h-3 text-amber-400" />}
                         <span className="font-mono text-amber-300/80">{tc.tool}</span>
                         {tc.expanded ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
                       </button>

@@ -8,18 +8,20 @@ interface CommandPaletteProps {
 }
 
 interface SearchResult {
-  type: "memory" | "skill" | "navigate" | "action";
+  type: "memory" | "skill" | "navigate" | "action" | "recent";
   id: string;
   title: string;
   subtitle?: string;
   icon?: string;
+  timestamp?: number;
 }
 
 const navItems: SearchResult[] = [
   { type: "navigate", id: "home", title: "Home", subtitle: "Go to home screen", icon: "home" },
   { type: "navigate", id: "chat", title: "Chat", subtitle: "Open conversation", icon: "chat" },
-  { type: "navigate", id: "memory", title: "Memory Graph", subtitle: "View your memories", icon: "brain" },
-  { type: "navigate", id: "skills", title: "Skills", subtitle: "Manage your skills", icon: "zap" },
+  { type: "navigate", id: "memory", title: "Memory Graph", subtitle: "View your memories · m", icon: "brain" },
+  { type: "navigate", id: "skills", title: "Skills", subtitle: "Manage your skills · s", icon: "zap" },
+  { type: "navigate", id: "activity", title: "Activity", subtitle: "View activity feed · a", icon: "activity" },
   { type: "navigate", id: "settings", title: "Settings", subtitle: "Configure NEXUS", icon: "settings" },
 ];
 
@@ -31,18 +33,42 @@ export default function CommandPalette({ onNavigate }: CommandPaletteProps) {
   const [results, setResults] = useState<SearchResult[]>(navItems);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [skills, setSkills] = useState<SearchResult[]>([]);
+  const [memories, setMemories] = useState<SearchResult[]>([]);
+  const [recentItems, setRecentItems] = useState<SearchResult[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetch(`${GATEWAY}/api/v1/skills`).then(r => r.json()).then((data: unknown) => {
-      if (Array.isArray(data)) {
-        setSkills(data.map((s: Record<string, unknown>) => ({
+  // Fetch all data once on palette open — all subsequent search is client-side
+  const loadAllData = useCallback(async () => {
+    if (dataLoaded) return;
+    try {
+      const [skillsRes, memoriesRes, activityRes] = await Promise.all([
+        fetch(`${GATEWAY}/api/v1/skills`).then(r => r.json()).catch(() => []),
+        fetch(`${GATEWAY}/api/v1/memories?limit=200`).then(r => r.json()).catch(() => []),
+        fetch(`${GATEWAY}/api/v1/activity?limit=5`).then(r => r.json()).catch(() => []),
+      ]);
+      if (Array.isArray(skillsRes)) {
+        setSkills(skillsRes.map((s: Record<string, unknown>) => ({
           type: "skill" as const, id: String(s.name || s.id), title: String(s.name || "Skill"),
           subtitle: String(s.description || "Run this skill"), icon: "zap",
         })));
       }
-    }).catch(() => {});
-  }, []);
+      const memArr = Array.isArray(memoriesRes) ? memoriesRes : (memoriesRes.memories || []);
+      setMemories(memArr.slice(0, 200).map((m: Record<string, unknown>) => ({
+        type: "memory" as const, id: String(m.id || Math.random()),
+        title: String(m.content || m.fact || "Memory").substring(0, 80),
+        subtitle: String(m.category || m.type || "memory"), icon: "brain",
+      })));
+      const actArr = Array.isArray(activityRes) ? activityRes : (activityRes.activities || []);
+      setRecentItems(actArr.slice(0, 5).map((a: Record<string, unknown>) => ({
+        type: "recent" as const, id: String(a.id || Math.random()),
+        title: String(a.content || a.summary || "Activity").substring(0, 80),
+        subtitle: String(a.type || "activity"), icon: a.type === "memory" ? "brain" : a.type === "skill" ? "zap" : "chat",
+        timestamp: Number(a.timestamp || Date.now()),
+      })));
+      setDataLoaded(true);
+    } catch { /* ignore */ }
+  }, [dataLoaded]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -54,42 +80,47 @@ export default function CommandPalette({ onNavigate }: CommandPaletteProps) {
   }, []);
 
   useEffect(() => {
-    if (open) { setTimeout(() => inputRef.current?.focus(), 50); setQuery(""); setSelectedIdx(0); }
-  }, [open]);
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+      setQuery(""); setSelectedIdx(0);
+      loadAllData();
+    }
+  }, [open, loadAllData]);
 
-  const doSearch = useCallback(async (q: string) => {
+  // Client-side search only — zero API calls while typing
+  const doSearch = useCallback((q: string) => {
     const lower = q.toLowerCase();
     const navR = navItems.filter(n => n.title.toLowerCase().includes(lower) || (n.subtitle || "").toLowerCase().includes(lower));
     const skillR = skills.filter(s => s.title.toLowerCase().includes(lower) || (s.subtitle || "").toLowerCase().includes(lower));
-    let memR: SearchResult[] = [];
-    if (q.length > 1) {
-      try {
-        let res = await fetch(`${GATEWAY}/api/v1/memories/search?q=${encodeURIComponent(q)}&limit=5`);
-        if (!res.ok) res = await fetch(`${GATEWAY}/api/v1/memories?q=${encodeURIComponent(q)}&limit=5`);
-        const data = await res.json();
-        const mems = Array.isArray(data) ? data : (data.memories || []);
-        memR = mems.slice(0, 5).map((m: Record<string, unknown>) => ({
-          type: "memory" as const, id: String(m.id || Math.random()),
-          title: String(m.content || m.fact || "Memory").substring(0, 80),
-          subtitle: String(m.category || m.type || "memory"), icon: "brain",
-        }));
-      } catch { /* ignore */ }
-    }
+    const memR = memories.filter(m => m.title.toLowerCase().includes(lower) || (m.subtitle || "").toLowerCase().includes(lower)).slice(0, 10);
     const all = [...navR, ...skillR, ...memR];
     setResults(all.length > 0 ? all : navItems);
     setSelectedIdx(0);
-  }, [skills]);
+  }, [skills, memories]);
 
   useEffect(() => {
-    if (!query) { setResults([...navItems, ...skills.slice(0, 3)]); setSelectedIdx(0); return; }
-    const timer = setTimeout(() => doSearch(query), 150);
-    return () => clearTimeout(timer);
-  }, [query, doSearch, skills]);
+    if (!query) {
+      // Show recent items when input is empty
+      if (recentItems.length > 0) {
+        setResults([...recentItems, ...navItems]);
+      } else {
+        setResults([...navItems, ...skills.slice(0, 3)]);
+      }
+      setSelectedIdx(0);
+      return;
+    }
+    // Synchronous client-side search — no delay needed
+    doSearch(query);
+  }, [query, doSearch, skills, recentItems]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, results.length - 1)); }
     if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)); }
     if (e.key === "Enter" && results[selectedIdx]) { e.preventDefault(); executeResult(results[selectedIdx]); }
+    // Single-key shortcuts: m → Memory, s → Skills, a → Activity
+    if (!query && e.key === "m") { e.preventDefault(); setOpen(false); onNavigate("memory"); }
+    if (!query && e.key === "s") { e.preventDefault(); setOpen(false); onNavigate("skills"); }
+    if (!query && e.key === "a") { e.preventDefault(); setOpen(false); onNavigate("activity"); }
   };
 
   const executeResult = (result: SearchResult) => {
@@ -103,7 +134,7 @@ export default function CommandPalette({ onNavigate }: CommandPaletteProps) {
   const groupResults = () => {
     const groups: Record<string, SearchResult[]> = {};
     for (const r of results) {
-      const label = r.type === "navigate" ? "Navigate" : r.type === "skill" ? "Skills" : r.type === "memory" ? "Memories" : "Actions";
+      const label = r.type === "recent" ? "Recent" : r.type === "navigate" ? "Navigate" : r.type === "skill" ? "Skills" : r.type === "memory" ? "Memories" : "Actions";
       if (!groups[label]) groups[label] = [];
       groups[label].push(r);
     }
@@ -151,6 +182,7 @@ export default function CommandPalette({ onNavigate }: CommandPaletteProps) {
                         {item.icon === "chat" && <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>}
                         {item.icon === "brain" && <><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></>}
                         {item.icon === "zap" && <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>}
+                        {item.icon === "activity" && <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>}
                         {item.icon === "settings" && <circle cx="12" cy="12" r="3"/>}
                       </svg>
                     </div>
@@ -166,7 +198,7 @@ export default function CommandPalette({ onNavigate }: CommandPaletteProps) {
           ))}
         </div>
         <div style={{ padding: "8px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 16, fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-4)" }}>
-          <span>Navigate</span><span>Select</span><span>esc Close</span>
+          <span>Navigate</span><span>Select</span><span>m Memory</span><span>s Skills</span><span>a Activity</span><span>esc Close</span>
           <span style={{ marginLeft: "auto" }}>{results.length} results</span>
         </div>
       </div>

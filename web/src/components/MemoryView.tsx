@@ -14,6 +14,7 @@ interface Memory {
   created_at?: string;
   updated_at?: string;
   usage_count?: number;
+  access_count?: number;
   source?: string;
   channel?: string;
   type?: string;

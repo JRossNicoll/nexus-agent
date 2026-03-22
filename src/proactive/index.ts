@@ -211,6 +211,8 @@ export class ProactiveWorker {
   }
 
   private canSendMessage(): boolean {
+    // NEXUS_FORCE_PROACTIVE=true bypasses all timing checks (testing only)
+    if (process.env.NEXUS_FORCE_PROACTIVE === 'true') return true;
     this.resetDailyCounter();
     if (this.messagesToday >= this.config.maxPerDay) return false;
     if (!canSendTimingCheck()) return false;
@@ -399,6 +401,32 @@ export class ProactiveWorker {
           });
         }
       }
+    }
+  }
+
+  async forceProactive(): Promise<void> {
+    const memories = getMemories(50);
+    const recentConversations = getRecentConversations(30);
+    if (recentConversations.length === 0 && memories.length === 0) {
+      await this.sendProactiveMessage('I noticed you haven\'t started any conversations yet. I\'m here whenever you\'re ready to chat!', 0.9, 'forced_test');
+      return;
+    }
+    const memoryContents = memories.slice(0, 10).map(m => '- ' + m.content.slice(0, 150)).join('\n');
+    const conversationSummary = recentConversations.slice(0, 5).map(c => '[' + c.role + '] ' + c.content.slice(0, 200)).join('\n');
+    try {
+      const response = await this.providerManager.chatComplete([
+        { role: 'system', content: 'You are a proactive AI assistant. Generate a short, helpful observation based on the user\'s recent activity and memories. Reference specific memory content. Under 100 words.\n\nMemories:\n' + memoryContents + '\n\nRecent conversations:\n' + conversationSummary },
+        { role: 'user', content: 'Generate a proactive insight.' },
+      ]);
+      const parsed = this.parseProactiveResponse(response);
+      if (parsed.send && parsed.message) {
+        await this.sendProactiveMessage(parsed.message, parsed.confidence || 0.9, 'forced_test');
+      } else {
+        const firstMem = memories[0]?.content?.slice(0, 100) || 'your recent activity';
+        await this.sendProactiveMessage('Based on what I know about ' + firstMem + ', I thought you might find it useful to review your memory graph for patterns.', 0.85, 'forced_test');
+      }
+    } catch {
+      await this.sendProactiveMessage('I\'ve been analyzing your recent conversations and noticed some interesting patterns in your memory graph. Take a look when you get a chance!', 0.8, 'forced_test');
     }
   }
 

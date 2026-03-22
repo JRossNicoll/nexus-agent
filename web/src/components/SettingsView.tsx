@@ -162,7 +162,7 @@ export default function SettingsView() {
             </button>
             {testResult && (
               <span style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: testResult.success ? "#5ec26a" : "#eb645a" }}>
-                {testResult.success ? `Connected · ${testResult.latency}ms` : `Failed — ${testResult.error}`}
+                {testResult.success ? `Connected · ${testResult.latency}ms` : `Failed — check your API key`}
               </span>
             )}
           </div>

@@ -114,7 +114,7 @@ export default function Home() {
               {tab === 'chat' && <ChatView pendingMessage={pendingChat} onPendingConsumed={() => setPendingChat(null)} />}
               {tab === 'memory' && <MemoryView />}
               {tab === 'skills' && <SkillsView />}
-              {tab === 'activity' && <ActivityView />}
+              {tab === 'activity' && <ActivityView onNavigate={(target, ctx) => { setActiveTab(target); }} />}
               {tab === 'settings' && <SettingsView />}
             </div>
           );

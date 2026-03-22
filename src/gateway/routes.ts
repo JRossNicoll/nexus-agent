@@ -52,7 +52,7 @@ export function setupRoutes(
   config: NexusConfig,
   providerManager: ProviderManager,
   skillManager: SkillManager,
-  proactiveWorker?: { getStatus: () => Record<string, unknown>; getConfig: () => Record<string, unknown> },
+  proactiveWorker?: { getStatus: () => Record<string, unknown>; getConfig: () => Record<string, unknown>; forceProactive?: () => Promise<void> },
 ): void {
   // Ensure skill executions table exists
   try { createSkillExecutionsTable(); } catch { /* ignore */ }
@@ -602,25 +602,53 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
         { max_tokens: 1000 },
       );
 
+      const duration_ms = Date.now() - start;
       insertSkillExecution({
         skill_name: skill.config.name,
         triggered_by: 'manual',
         success: true,
         output: response.slice(0, 2000),
-        duration_ms: Date.now() - start,
+        duration_ms,
+      });
+
+      // Broadcast skill_execution_complete via WebSocket
+      broadcastToClients({
+        type: 'skill_execution_complete',
+        payload: {
+          skill_id: skill.config.name,
+          success: true,
+          duration_ms,
+          output_preview: response.slice(0, 200),
+        },
+        timestamp: Date.now(),
       });
 
       return { success: true, output: response };
     } catch (error: unknown) {
       const err = error as { message: string };
+      const duration_ms = Date.now() - start;
       insertSkillExecution({
         skill_name: skill.config.name,
         triggered_by: 'manual',
         success: false,
         output: '',
         error: err.message,
-        duration_ms: Date.now() - start,
+        duration_ms,
       });
+
+      // Broadcast failure via WebSocket
+      broadcastToClients({
+        type: 'skill_execution_complete',
+        payload: {
+          skill_id: skill.config.name,
+          success: false,
+          duration_ms,
+          output_preview: '',
+          error: err.message,
+        },
+        timestamp: Date.now(),
+      });
+
       return { success: false, error: err.message };
     }
   });
@@ -715,18 +743,37 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     return { enabled: false };
   });
 
-  // Provider test endpoint (uses configured provider)
-  app.post('/api/providers/test', async (request) => {
-    const body = request.body as { provider?: string };
+  // Force proactive delivery (only when NEXUS_FORCE_PROACTIVE=true)
+  app.post('/api/proactive/force', async () => {
+    if (process.env.NEXUS_FORCE_PROACTIVE !== 'true') {
+      return { success: false, error: 'NEXUS_FORCE_PROACTIVE env var is not set to true' };
+    }
+    if (!proactiveWorker || !proactiveWorker.forceProactive) {
+      return { success: false, error: 'Proactive worker not available' };
+    }
     try {
-      const response = await providerManager.chatComplete(
-        [{ role: 'user', content: 'Say hello in exactly one word.' }],
-        { max_tokens: 10 },
-      );
-      return { success: true, response: response.slice(0, 100), provider: body.provider ?? config.provider.primary };
+      await proactiveWorker.forceProactive();
+      return { success: true, message: 'Proactive message sent via WebSocket' };
     } catch (error: unknown) {
       const err = error as { message: string };
       return { success: false, error: err.message };
+    }
+  });
+
+  // Provider test endpoint (uses configured provider) — real API call with max_tokens:1
+  app.post('/api/providers/test', async (request) => {
+    const body = request.body as { provider?: string };
+    const testStart = Date.now();
+    try {
+      await providerManager.chatComplete(
+        [{ role: 'user', content: 'ping' }],
+        { max_tokens: 1 },
+      );
+      const latency = Date.now() - testStart;
+      return { success: true, latency_ms: latency, message: `Connected · ${latency}ms`, provider: body.provider ?? config.provider.primary };
+    } catch (error: unknown) {
+      const err = error as { message: string };
+      return { success: false, latency_ms: Date.now() - testStart, message: 'Failed — check your API key', error: err.message };
     }
   });
 
@@ -1034,6 +1081,72 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     const typeFilter = query.type;
     const activities = getActivities(limit, 0, typeFilter);
     return activities;
+  });
+
+  // Activity sessions — group activities by 2-hour windows
+  app.get('/api/v1/activity/sessions', async (request) => {
+    const query = request.query as { limit?: string };
+    const limit = parseInt(query.limit ?? '200', 10);
+    const activities = getActivities(limit, 0);
+    
+    // Sort by timestamp descending
+    const sorted = [...activities].sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+    
+    // Group into sessions (2-hour window)
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    const sessions: Array<{
+      id: string;
+      startTime: number;
+      endTime: number;
+      duration: number;
+      activities: typeof sorted;
+      summary?: string;
+    }> = [];
+    
+    let currentSession: typeof sessions[0] | null = null;
+    for (const activity of sorted) {
+      const ts = activity.timestamp ?? Date.now();
+      if (!currentSession || (currentSession.startTime - ts) > TWO_HOURS) {
+        currentSession = {
+          id: `session-${sessions.length}`,
+          startTime: ts,
+          endTime: ts,
+          duration: 0,
+          activities: [activity],
+        };
+        sessions.push(currentSession);
+      } else {
+        currentSession.activities.push(activity);
+        currentSession.startTime = Math.min(currentSession.startTime, ts);
+        currentSession.endTime = Math.max(currentSession.endTime, ts);
+        currentSession.duration = currentSession.endTime - currentSession.startTime;
+      }
+    }
+    
+    return sessions;
+  });
+
+  // Summarize a session using LLM (with caching)
+  const sessionSummaryCache = new Map<string, string>();
+  app.post('/api/v1/activity/sessions/summarize', async (request) => {
+    const body = request.body as { sessionId: string; activities: Array<{ type: string; summary: string }> };
+    
+    // Check cache first
+    const cached = sessionSummaryCache.get(body.sessionId);
+    if (cached) return { summary: cached, cached: true };
+    
+    try {
+      const activityList = body.activities.map(a => `[${a.type}] ${a.summary}`).join('\n');
+      const response = await providerManager.chatComplete([
+        { role: 'system', content: 'Summarize what was accomplished in this session in a single sentence. Be concise and specific.' },
+        { role: 'user', content: activityList },
+      ], { max_tokens: 100 });
+      
+      sessionSummaryCache.set(body.sessionId, response);
+      return { summary: response, cached: false };
+    } catch {
+      return { summary: `${body.activities.length} activities`, cached: false };
+    }
   });
 
   // Memories endpoint (for MemoryView)

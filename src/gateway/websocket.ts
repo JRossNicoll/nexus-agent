@@ -174,6 +174,20 @@ async function handleChat(
     channel,
   });
 
+  // Helper to emit tool-call events with typed icons
+  const emitToolCall = (tool: string, input: Record<string, unknown> = {}) => {
+    sendToClient(client, {
+      type: 'tool-call',
+      payload: { tool, input },
+      timestamp: Date.now(),
+    });
+    broadcastToClients({
+      type: 'tool-call',
+      payload: { tool, input },
+      timestamp: Date.now(),
+    });
+  };
+
   // Dynamic trace: understanding the message
   trace('Understanding your message...', 'active');
 
@@ -201,6 +215,7 @@ async function handleChat(
 
   // Retrieve relevant memories for context
   trace('Searching your memories...', 'active');
+  emitToolCall('memory_read', { query: request.message });
   const relevantMemories = searchMemoriesByText(request.message, 10);
 
   // Reinforce and pulse memories that are being used
