@@ -128,7 +128,7 @@ async function main(): Promise<void> {
     console.log(`Health: http://localhost:${port}/health`);
     console.log(`WebSocket: ws://localhost:${port}/ws`);
     console.log(`OpenAI API: http://localhost:${port}/v1/chat/completions`);
-    console.log(`Web UI: http://localhost:${port + 1}`);
+    console.log(`Web UI: http://localhost:${port}`);
     console.log('\nMedo is ready.\n');
   } catch (error) {
     console.error('Failed to start gateway:', error);
