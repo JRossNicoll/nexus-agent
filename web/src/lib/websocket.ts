@@ -16,6 +16,8 @@ class NexusWebSocket {
   private handlers: Map<string, Set<MessageHandler>> = new Map();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private connected = false;
+  private reconnectAttempt = 0;
+  private maxBackoff = 8000;
 
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN) return;
@@ -25,8 +27,10 @@ class NexusWebSocket {
 
       this.ws.onopen = () => {
         this.connected = true;
+        this.reconnectAttempt = 0;
         this.send({ type: 'connect', payload: {} });
         this.emit('connected', { type: 'connected' });
+        this.emit('reconnected', { type: 'reconnected' });
       };
 
       this.ws.onmessage = (event) => {
@@ -35,7 +39,7 @@ class NexusWebSocket {
           this.emit(message.type, message);
           this.emit('*', message);
         } catch {
-          console.error('Failed to parse WS message');
+          // silently ignore parse errors
         }
       };
 
@@ -100,10 +104,14 @@ class NexusWebSocket {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
+    // Exponential backoff: 1s, 2s, 4s, 8s max
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempt), this.maxBackoff);
+    this.reconnectAttempt++;
+    this.emit('reconnecting', { type: 'reconnecting', payload: { attempt: this.reconnectAttempt, delay } });
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
-    }, 3000);
+    }, delay);
   }
 }
 

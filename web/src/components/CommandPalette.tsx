@@ -1,351 +1,173 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  Search,
-  MessageSquare,
-  Brain,
-  Zap,
-  Settings,
-  Activity,
-  Command,
-  CornerDownLeft,
-  X,
-} from "lucide-react";
-import { memoryAPI, skillsAPI } from "@/lib/api";
-import type { SemanticMemory, SkillInfo } from "@/lib/api";
 import { nexusWS } from "@/lib/websocket";
-import { cn } from "@/lib/utils";
-
-type ResultItem =
-  | { type: "view"; label: string; icon: string; view: string }
-  | { type: "memory"; label: string; memory: SemanticMemory }
-  | { type: "skill"; label: string; skill: SkillInfo }
-  | { type: "chat"; label: string; message: string };
 
 interface CommandPaletteProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (tab: string) => void;
 }
 
-const VIEWS: Array<{ label: string; icon: string; view: string }> = [
-  { label: "Chat", icon: "chat", view: "chat" },
-  { label: "Memory Graph", icon: "memory", view: "memory" },
-  { label: "Skills", icon: "skills", view: "skills" },
-  { label: "Activity Feed", icon: "activity", view: "activity" },
-  { label: "Settings", icon: "settings", view: "settings" },
+interface SearchResult {
+  type: "memory" | "skill" | "navigate" | "action";
+  id: string;
+  title: string;
+  subtitle?: string;
+  icon?: string;
+}
+
+const navItems: SearchResult[] = [
+  { type: "navigate", id: "home", title: "Home", subtitle: "Go to home screen", icon: "home" },
+  { type: "navigate", id: "chat", title: "Chat", subtitle: "Open conversation", icon: "chat" },
+  { type: "navigate", id: "memory", title: "Memory Graph", subtitle: "View your memories", icon: "brain" },
+  { type: "navigate", id: "skills", title: "Skills", subtitle: "Manage your skills", icon: "zap" },
+  { type: "navigate", id: "settings", title: "Settings", subtitle: "Configure NEXUS", icon: "settings" },
 ];
 
-function ViewIcon({ icon }: { icon: string }) {
-  switch (icon) {
-    case "chat":
-      return <MessageSquare className="w-4 h-4" />;
-    case "memory":
-      return <Brain className="w-4 h-4" />;
-    case "skills":
-      return <Zap className="w-4 h-4" />;
-    case "activity":
-      return <Activity className="w-4 h-4" />;
-    case "settings":
-      return <Settings className="w-4 h-4" />;
-    default:
-      return <Search className="w-4 h-4" />;
-  }
-}
+const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:18799";
 
 export default function CommandPalette({ onNavigate }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<ResultItem[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<SearchResult[]>(navItems);
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [skills, setSkills] = useState<SearchResult[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Global keyboard shortcut
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setOpen((prev) => !prev);
+    fetch(`${GATEWAY}/api/v1/skills`).then(r => r.json()).then((data: unknown) => {
+      if (Array.isArray(data)) {
+        setSkills(data.map((s: Record<string, unknown>) => ({
+          type: "skill" as const, id: String(s.name || s.id), title: String(s.name || "Skill"),
+          subtitle: String(s.description || "Run this skill"), icon: "zap",
+        })));
       }
-      if (e.key === "Escape" && open) {
-        e.preventDefault();
-        setOpen(false);
-      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setOpen(prev => !prev); }
+      if (e.key === "Escape") setOpen(false);
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (open) { setTimeout(() => inputRef.current?.focus(), 50); setQuery(""); setSelectedIdx(0); }
   }, [open]);
 
-  // Focus input when opened
-  useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-      setQuery("");
-      setResults([]);
-      setSelectedIndex(0);
-    }
-  }, [open]);
-
-  // Search as user types
-  useEffect(() => {
-    if (!open) return;
-
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    const q = query.trim().toLowerCase();
-
-    // Always show matching views
-    const viewResults: ResultItem[] = VIEWS.filter(
-      (v) => !q || v.label.toLowerCase().includes(q)
-    ).map((v) => ({ type: "view", label: v.label, icon: v.icon, view: v.view }));
-
-    if (!q) {
-      setResults(viewResults);
-      setSelectedIndex(0);
-      return;
-    }
-
-    // Add "Send as chat" option
-    const chatResult: ResultItem = {
-      type: "chat",
-      label: `Send: "${query}"`,
-      message: query,
-    };
-
-    setResults([...viewResults, chatResult]);
-    setSelectedIndex(0);
-
-    // Debounced search for memories and skills
-    searchTimeoutRef.current = setTimeout(async () => {
-      setSearching(true);
+  const doSearch = useCallback(async (q: string) => {
+    const lower = q.toLowerCase();
+    const navR = navItems.filter(n => n.title.toLowerCase().includes(lower) || (n.subtitle || "").toLowerCase().includes(lower));
+    const skillR = skills.filter(s => s.title.toLowerCase().includes(lower) || (s.subtitle || "").toLowerCase().includes(lower));
+    let memR: SearchResult[] = [];
+    if (q.length > 1) {
       try {
-        const [memories, skills] = await Promise.all([
-          memoryAPI.searchMemories(query, 5).catch(() => [] as SemanticMemory[]),
-          skillsAPI.getAll().catch(() => [] as SkillInfo[]),
-        ]);
-
-        const memoryResults: ResultItem[] = memories.map((m) => ({
-          type: "memory" as const,
-          label: m.content.slice(0, 80) + (m.content.length > 80 ? "..." : ""),
-          memory: m,
+        let res = await fetch(`${GATEWAY}/api/v1/memories/search?q=${encodeURIComponent(q)}&limit=5`);
+        if (!res.ok) res = await fetch(`${GATEWAY}/api/v1/memories?q=${encodeURIComponent(q)}&limit=5`);
+        const data = await res.json();
+        const mems = Array.isArray(data) ? data : (data.memories || []);
+        memR = mems.slice(0, 5).map((m: Record<string, unknown>) => ({
+          type: "memory" as const, id: String(m.id || Math.random()),
+          title: String(m.content || m.fact || "Memory").substring(0, 80),
+          subtitle: String(m.category || m.type || "memory"), icon: "brain",
         }));
+      } catch { /* ignore */ }
+    }
+    const all = [...navR, ...skillR, ...memR];
+    setResults(all.length > 0 ? all : navItems);
+    setSelectedIdx(0);
+  }, [skills]);
 
-        const filteredSkills = skills.filter(
-          (s) =>
-            s.name.toLowerCase().includes(q) ||
-            s.description.toLowerCase().includes(q)
-        );
-        const skillResults: ResultItem[] = filteredSkills.map((s) => ({
-          type: "skill" as const,
-          label: s.name,
-          skill: s,
-        }));
-
-        setResults((prev) => {
-          const views = prev.filter((r) => r.type === "view");
-          const chat = prev.filter((r) => r.type === "chat");
-          return [...views, ...memoryResults, ...skillResults, ...chat];
-        });
-      } catch {
-        // Keep existing results
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [query, open]);
-
-  const executeResult = useCallback(
-    (item: ResultItem) => {
-      setOpen(false);
-      switch (item.type) {
-        case "view":
-          onNavigate(item.view);
-          break;
-        case "memory":
-          onNavigate("memory");
-          break;
-        case "skill":
-          if (item.skill) {
-            skillsAPI.run(item.skill.name).catch(() => {});
-            onNavigate("skills");
-          }
-          break;
-        case "chat":
-          onNavigate("chat");
-          setTimeout(() => {
-            nexusWS.sendChat(item.message);
-          }, 100);
-          break;
-      }
-    },
-    [onNavigate]
-  );
+  useEffect(() => {
+    if (!query) { setResults([...navItems, ...skills.slice(0, 3)]); setSelectedIdx(0); return; }
+    const timer = setTimeout(() => doSearch(query), 150);
+    return () => clearTimeout(timer);
+  }, [query, doSearch, skills]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelectedIndex((prev) => Math.max(prev - 1, 0));
-    } else if (e.key === "Enter" && results[selectedIndex]) {
-      e.preventDefault();
-      executeResult(results[selectedIndex]);
+    if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, results.length - 1)); }
+    if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)); }
+    if (e.key === "Enter" && results[selectedIdx]) { e.preventDefault(); executeResult(results[selectedIdx]); }
+  };
+
+  const executeResult = (result: SearchResult) => {
+    setOpen(false);
+    if (result.type === "navigate") onNavigate(result.id);
+    else if (result.type === "skill") fetch(`${GATEWAY}/api/v1/skills/${result.id}/run`, { method: "POST" }).catch(() => {});
+    else if (result.type === "memory") onNavigate("memory");
+    else if (result.type === "action") { nexusWS.sendChat(result.title); onNavigate("chat"); }
+  };
+
+  const groupResults = () => {
+    const groups: Record<string, SearchResult[]> = {};
+    for (const r of results) {
+      const label = r.type === "navigate" ? "Navigate" : r.type === "skill" ? "Skills" : r.type === "memory" ? "Memories" : "Actions";
+      if (!groups[label]) groups[label] = [];
+      groups[label].push(r);
     }
+    return groups;
   };
 
   if (!open) return null;
+  const groups = groupResults();
+  let flatIdx = 0;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={() => setOpen(false)}
-      />
-
-      {/* Palette */}
-      <div className="relative w-full max-w-xl mx-4 bg-surface-1/95 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl shadow-black/40 overflow-hidden animate-palette-in">
-        {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06]">
-          <Search className="w-5 h-5 text-gray-500 flex-shrink-0" />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Search memories, skills, views, or type a message..."
-            className="flex-1 bg-transparent text-white text-sm placeholder-gray-500 outline-none"
-          />
-          {searching && (
-            <div className="w-4 h-4 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin flex-shrink-0" />
-          )}
-          <button
-            onClick={() => setOpen(false)}
-            className="p-1 rounded-md hover:bg-white/[0.06] text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </button>
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 120 }}
+      onClick={() => setOpen(false)}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} />
+      <div onClick={e => e.stopPropagation()} style={{
+        width: 520, maxHeight: 420, background: "var(--bg-surface)",
+        border: "1px solid var(--border-mid)", borderRadius: "var(--r-lg)",
+        boxShadow: "0 16px 64px rgba(0,0,0,0.5)", overflow: "hidden", position: "relative",
+      }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="1.8">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown}
+            placeholder="Search memories, skills, or navigate..."
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text-1)", fontSize: 14, fontFamily: "var(--font-ui)" }} />
+          <div style={{ fontSize: 10, color: "var(--text-4)", fontFamily: "var(--font-mono)", padding: "2px 6px", background: "var(--bg-raised)", borderRadius: 4, border: "1px solid var(--border)" }}>ESC</div>
         </div>
-
-        {/* Results */}
-        <div className="max-h-80 overflow-y-auto py-2">
-          {results.length === 0 && query && !searching && (
-            <div className="px-4 py-8 text-center text-sm text-gray-500">
-              No results found
+        <div style={{ maxHeight: 340, overflowY: "auto", padding: "6px 0" }}>
+          {Object.entries(groups).map(([groupName, items]) => (
+            <div key={groupName}>
+              <div style={{ padding: "6px 16px 4px", fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-4)", textTransform: "uppercase", letterSpacing: 1 }}>{groupName}</div>
+              {items.map((item) => {
+                const thisIdx = flatIdx++;
+                const isSel = thisIdx === selectedIdx;
+                return (
+                  <div key={item.id + item.type} onClick={() => executeResult(item)} onMouseEnter={() => setSelectedIdx(thisIdx)}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", cursor: "pointer",
+                      background: isSel ? "var(--accent-low)" : "transparent",
+                      borderLeft: isSel ? "2px solid var(--accent)" : "2px solid transparent",
+                    }}>
+                    <div style={{ width: 26, height: 26, borderRadius: "var(--r-sm)", background: "var(--bg-raised)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="1.8">
+                        {item.icon === "home" && <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>}
+                        {item.icon === "chat" && <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>}
+                        {item.icon === "brain" && <><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></>}
+                        {item.icon === "zap" && <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>}
+                        {item.icon === "settings" && <circle cx="12" cy="12" r="3"/>}
+                      </svg>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: isSel ? "var(--text-1)" : "var(--text-2)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                      {item.subtitle && <div style={{ fontSize: 11, color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>{item.subtitle}</div>}
+                    </div>
+                    {isSel && <div style={{ fontSize: 10, color: "var(--text-4)", fontFamily: "var(--font-mono)" }}>Enter</div>}
+                  </div>
+                );
+              })}
             </div>
-          )}
-
-          {results.map((item, idx) => (
-            <button
-              key={`${item.type}-${idx}`}
-              onClick={() => executeResult(item)}
-              onMouseEnter={() => setSelectedIndex(idx)}
-              className={cn(
-                "flex items-center gap-3 w-full px-4 py-2.5 text-left transition-colors",
-                idx === selectedIndex
-                  ? "bg-indigo-500/10 text-white"
-                  : "text-gray-400 hover:bg-white/[0.03]"
-              )}
-            >
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                  item.type === "view"
-                    ? "bg-surface-3"
-                    : item.type === "memory"
-                    ? "bg-emerald-500/10"
-                    : item.type === "skill"
-                    ? "bg-amber-500/10"
-                    : "bg-indigo-500/10"
-                )}
-              >
-                {item.type === "view" ? (
-                  <ViewIcon icon={item.icon} />
-                ) : item.type === "memory" ? (
-                  <Brain
-                    className={cn(
-                      "w-4 h-4",
-                      idx === selectedIndex
-                        ? "text-emerald-400"
-                        : "text-emerald-500/60"
-                    )}
-                  />
-                ) : item.type === "skill" ? (
-                  <Zap
-                    className={cn(
-                      "w-4 h-4",
-                      idx === selectedIndex
-                        ? "text-amber-400"
-                        : "text-amber-500/60"
-                    )}
-                  />
-                ) : (
-                  <MessageSquare
-                    className={cn(
-                      "w-4 h-4",
-                      idx === selectedIndex
-                        ? "text-indigo-400"
-                        : "text-indigo-500/60"
-                    )}
-                  />
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="text-sm truncate">{item.label}</div>
-                <div className="text-[11px] text-gray-600 capitalize">
-                  {item.type === "view"
-                    ? "Navigate"
-                    : item.type === "memory"
-                    ? "Memory"
-                    : item.type === "skill"
-                    ? "Run skill"
-                    : "Send message"}
-                </div>
-              </div>
-
-              {idx === selectedIndex && (
-                <div className="flex items-center gap-1 text-[11px] text-gray-500 flex-shrink-0">
-                  <CornerDownLeft className="w-3 h-3" />
-                  Enter
-                </div>
-              )}
-            </button>
           ))}
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-white/[0.06] text-[11px] text-gray-600">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-surface-3 rounded text-[10px] border border-white/[0.08]">
-                <span className="text-[9px]">
-                  <Command className="w-2.5 h-2.5 inline" />
-                </span>
-                K
-              </kbd>
-              Toggle
-            </span>
-            <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 bg-surface-3 rounded text-[10px] border border-white/[0.08]">
-                Esc
-              </kbd>
-              Close
-            </span>
-          </div>
-          <span>
-            {results.length} result{results.length !== 1 ? "s" : ""}
-          </span>
+        <div style={{ padding: "8px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 16, fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-4)" }}>
+          <span>Navigate</span><span>Select</span><span>esc Close</span>
+          <span style={{ marginLeft: "auto" }}>{results.length} results</span>
         </div>
       </div>
     </div>

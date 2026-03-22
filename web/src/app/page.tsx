@@ -7,34 +7,38 @@ import MemoryView from '@/components/MemoryView';
 import SkillsView from '@/components/SkillsView';
 import ActivityView from '@/components/ActivityView';
 import SettingsView from '@/components/SettingsView';
+import HomeScreen from '@/components/HomeScreen';
 import AuthGate from '@/components/AuthGate';
 import OnboardingFlow from '@/components/OnboardingFlow';
 import AmbientOrb from '@/components/AmbientOrb';
 import CommandPalette from '@/components/CommandPalette';
 import { authAPI, onboardingAPI } from '@/lib/api';
+import { nexusWS } from '@/lib/websocket';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('chat');
+  const [activeTab, setActiveTab] = useState('home');
   const [authenticated, setAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(false);
 
+  // Persistent app-level WebSocket connection
   useEffect(() => {
-    // Check if auth is required
+    nexusWS.connect();
+    return () => { /* don't disconnect on unmount — persistent */ };
+  }, []);
+
+  useEffect(() => {
     authAPI.verify('')
       .then((res) => {
         if (res.noAuthRequired || res.authenticated) {
           setAuthenticated(true);
         }
       })
-      .catch(() => {
-        // Gateway not reachable or auth required
-      })
+      .catch(() => {})
       .finally(() => setCheckingAuth(false));
   }, []);
 
-  // Check onboarding status after auth
   useEffect(() => {
     if (!authenticated) return;
     setCheckingOnboarding(true);
@@ -44,19 +48,26 @@ export default function Home() {
           setNeedsOnboarding(true);
         }
       })
-      .catch(() => {
-        // If we can't check, assume no onboarding needed
-      })
+      .catch(() => {})
       .finally(() => setCheckingOnboarding(false));
   }, [authenticated]);
 
   if (checkingAuth || checkingOnboarding) {
     return (
-      <div className="flex items-center justify-center h-screen bg-surface-0">
-        <div className="flex items-center gap-3 text-gray-500">
-          <div className="w-5 h-5 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-          <span className="text-sm">Connecting to NEXUS...</span>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100vh', background: 'var(--bg-base)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-2)', fontSize: 13 }}>
+          <div style={{
+            width: 18, height: 18, borderRadius: '50%',
+            border: '2px solid rgba(45,140,255,0.2)',
+            borderTopColor: 'var(--accent)',
+            animation: 'spin 0.8s linear infinite',
+          }} />
+          <span>Connecting to NEXUS...</span>
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -69,8 +80,18 @@ export default function Home() {
     return <OnboardingFlow onComplete={() => setNeedsOnboarding(false)} />;
   }
 
+  const handleSendFromHome = (msg: string) => {
+    setActiveTab('chat');
+    // Small delay so ChatView mounts before we send
+    setTimeout(() => {
+      nexusWS.sendChat(msg);
+    }, 200);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
+      case 'home':
+        return <HomeScreen onSend={handleSendFromHome} onNavigate={setActiveTab} />;
       case 'chat':
         return <ChatView />;
       case 'memory':
@@ -82,14 +103,14 @@ export default function Home() {
       case 'settings':
         return <SettingsView />;
       default:
-        return <ChatView />;
+        return <HomeScreen onSend={handleSendFromHome} onNavigate={setActiveTab} />;
     }
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-0">
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg-base)' }}>
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      <main className="flex-1 overflow-hidden">
+      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {renderContent()}
       </main>
       <AmbientOrb />

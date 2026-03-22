@@ -1,85 +1,153 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  MessageSquare,
-  Brain,
-  Zap,
-  Activity,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Hexagon,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
 }
 
-const tabs = [
-  { id: 'chat', label: 'Chat', icon: MessageSquare },
-  { id: 'memory', label: 'Memory', icon: Brain },
-  { id: 'skills', label: 'Skills', icon: Zap },
-  { id: 'activity', label: 'Activity', icon: Activity },
-  { id: 'settings', label: 'Settings', icon: Settings },
+const navItems = [
+  { id: 'chat', label: 'Chat', svg: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' },
+  { id: 'memory', label: 'Memory', svg: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>' },
+  { id: 'skills', label: 'Skills', svg: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
+  { id: 'activity', label: 'Activity', svg: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>' },
 ];
 
-export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+const settingsItem = {
+  id: 'settings', label: 'Settings',
+  svg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+};
 
+function NavIcon({ svgPath, size = 15 }: { svgPath: string; size?: number }) {
   return (
-    <aside
-      className={cn(
-        'flex flex-col glass border-r border-white/[0.06] transition-all duration-300 ease-out',
-        collapsed ? 'w-[52px]' : 'w-52'
-      )}
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+      dangerouslySetInnerHTML={{ __html: svgPath }} />
+  );
+}
+
+export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+  return (
+    <aside style={{
+      width: 56,
+      background: 'var(--bg-base)',
+      borderRight: '1px solid var(--border)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '18px 0 16px',
+      gap: 4,
+      flexShrink: 0,
+    }}>
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-3 h-14 border-b border-white/[0.06]">
-        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-500/20 flex-shrink-0">
-          <Hexagon className="w-4 h-4 text-white" />
-        </div>
-        {!collapsed && (
-          <span className="text-sm font-semibold tracking-tight text-white gradient-text">
-            NEXUS
-          </span>
-        )}
+      <div style={{ marginBottom: 12, cursor: 'pointer' }} onClick={() => onTabChange('home')}>
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+          <path d="M13 2L3 7.5V18.5L13 24L23 18.5V7.5L13 2Z" stroke="rgba(45,140,255,0.52)" strokeWidth="1.1" fill="none"/>
+          <path d="M13 7L7 10.5V15.5L13 19L19 15.5V10.5L13 7Z" fill="rgba(45,140,255,0.07)" stroke="rgba(45,140,255,0.32)" strokeWidth="0.8"/>
+          <circle cx="13" cy="13" r="2.2" fill="rgba(45,140,255,0.88)"/>
+        </svg>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-1.5 py-3 space-y-0.5">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={cn(
-                'flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-200',
-                isActive
-                  ? 'bg-indigo-500/15 text-indigo-300 shadow-sm shadow-indigo-500/10'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
-              )}
-              title={collapsed ? tab.label : undefined}
-            >
-              <Icon className={cn('w-[18px] h-[18px] flex-shrink-0', isActive && 'text-indigo-400')} />
-              {!collapsed && <span>{tab.label}</span>}
-            </button>
-          );
-        })}
-      </nav>
+      {/* Main nav */}
+      {navItems.map((item) => {
+        const isActive = activeTab === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
+            title={item.label}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 'var(--r-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: isActive ? 'var(--accent)' : 'var(--text-3)',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              position: 'relative',
+              border: isActive ? '1px solid rgba(45,140,255,0.12)' : '1px solid transparent',
+              background: isActive ? 'var(--accent-low)' : 'transparent',
+              padding: 0,
+            }}
+          >
+            {isActive && (
+              <span style={{
+                position: 'absolute',
+                left: -1,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 2,
+                height: 16,
+                background: 'var(--accent)',
+                borderRadius: '0 2px 2px 0',
+              }} />
+            )}
+            <NavIcon svgPath={item.svg} />
+          </button>
+        );
+      })}
 
-      {/* Collapse toggle */}
-      <div className="px-1.5 py-2 border-t border-white/[0.06]">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center w-full p-1.5 rounded-lg text-gray-600 hover:text-gray-400 hover:bg-white/[0.04] transition-colors"
-        >
-          {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-        </button>
+      {/* Separator */}
+      <div style={{
+        width: 22,
+        height: 1,
+        background: 'var(--border)',
+        margin: '6px 0',
+      }} />
+
+      {/* Settings */}
+      <button
+        onClick={() => onTabChange('settings')}
+        title={settingsItem.label}
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 'var(--r-sm)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: activeTab === 'settings' ? 'var(--accent)' : 'var(--text-3)',
+          cursor: 'pointer',
+          transition: 'all 0.15s',
+          position: 'relative',
+          border: activeTab === 'settings' ? '1px solid rgba(45,140,255,0.12)' : '1px solid transparent',
+          background: activeTab === 'settings' ? 'var(--accent-low)' : 'transparent',
+          padding: 0,
+        }}
+      >
+        {activeTab === 'settings' && (
+          <span style={{
+            position: 'absolute',
+            left: -1,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: 2,
+            height: 16,
+            background: 'var(--accent)',
+            borderRadius: '0 2px 2px 0',
+          }} />
+        )}
+        <NavIcon svgPath={settingsItem.svg} />
+      </button>
+
+      {/* Spacer + Avatar */}
+      <div style={{ flex: 1 }} />
+      <div style={{
+        width: 30,
+        height: 30,
+        borderRadius: '50%',
+        background: 'var(--bg-raised)',
+        border: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 11,
+        fontWeight: 500,
+        color: 'var(--text-2)',
+        fontFamily: 'var(--font-mono)',
+        cursor: 'pointer',
+      }}>
+        R
       </div>
     </aside>
   );
