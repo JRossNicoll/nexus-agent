@@ -6,6 +6,13 @@ export interface NexusConfig {
   skills: string[];
   cron: CronEntry[];
   proactive?: ProactiveSettingsConfig;
+  onboarding?: OnboardingState;
+}
+
+export interface OnboardingState {
+  completed: boolean;
+  userName?: string;
+  completedAt?: number;
 }
 
 export interface ProactiveSettingsConfig {
@@ -133,6 +140,7 @@ export type WSMessageType =
   | 'tool-call'
   | 'tool-result'
   | 'memory-update'
+  | 'memory-pulse'
   | 'activity'
   | 'proactive'
   | 'ping'
@@ -140,7 +148,8 @@ export type WSMessageType =
   | 'auth-required'
   | 'auth-ok'
   | 'auth-fail'
-  | 'thinking';
+  | 'thinking'
+  | 'execution-trace';
 
 export interface WSMessage {
   type: WSMessageType;
@@ -235,6 +244,37 @@ export interface Skill {
   content: string;
   filePath: string;
   lastRun?: number;
+}
+
+// Skill execution history
+export interface SkillExecution {
+  id: string;
+  skill_name: string;
+  triggered_by: 'cron' | 'keyword' | 'manual' | 'api';
+  success: boolean;
+  output: string;
+  error?: string;
+  duration_ms: number;
+  timestamp: number;
+}
+
+// Memory health
+export interface MemoryHealth {
+  totalMemories: number;
+  addedThisWeek: number;
+  oldestMemory: number | null;
+  mostReferenced: { id: string; content: string; access_count: number } | null;
+  staleMemories: number;
+  totalConversations: number;
+  totalStructured: number;
+}
+
+// Memory graph cluster
+export interface MemoryCluster {
+  id: string;
+  label: string;
+  nodeIds: string[];
+  color: string;
 }
 
 // Health response

@@ -9,6 +9,7 @@ import {
   insertActivity,
   searchMemoriesByText,
   getRecentConversations,
+  reinforceMemory,
 } from '../memory/database.js';
 import { getToolDefinitions } from '../tools/index.js';
 import { ProactiveWorker } from '../proactive/index.js';
@@ -91,9 +92,9 @@ async function handleMessage(
         sendToClient(client, {
           type: 'hello-ok',
           payload: {
-            version: '0.1.0',
+            version: '0.2.0',
             provider: config.provider.primary,
-            features: ['chat', 'memory', 'skills', 'proactive', 'tools'],
+            features: ['chat', 'memory', 'skills', 'proactive', 'tools', 'onboarding', 'skill-builder', 'execution-trace'],
           },
           timestamp: Date.now(),
         });
@@ -160,6 +161,14 @@ async function handleChat(
     channel,
   });
 
+  // Send execution trace: starting
+  sendToClient(client, {
+    type: 'execution-trace',
+    id: sessionId,
+    payload: { step: 'Analyzing your message...', status: 'active' },
+    timestamp: Date.now(),
+  });
+
   // Check for slash commands
   if (request.message.startsWith('/')) {
     const skillName = request.message.slice(1).split(' ')[0];
@@ -177,7 +186,37 @@ async function handleChat(
   const matchedSkills = skillManager.getSkillsByKeyword(request.message);
 
   // Retrieve relevant memories for context
+  sendToClient(client, {
+    type: 'execution-trace',
+    id: sessionId,
+    payload: { step: 'Searching memories for relevant context...', status: 'active' },
+    timestamp: Date.now(),
+  });
+
   const relevantMemories = searchMemoriesByText(request.message, 10);
+
+  // Reinforce and pulse memories that are being used
+  const usedMemoryIds: string[] = [];
+  if (relevantMemories.length > 0) {
+    sendToClient(client, {
+      type: 'execution-trace',
+      id: sessionId,
+      payload: { step: `Found ${relevantMemories.length} relevant memories`, status: 'done' },
+      timestamp: Date.now(),
+    });
+
+    for (const mem of relevantMemories.slice(0, 5)) {
+      reinforceMemory(mem.id);
+      usedMemoryIds.push(mem.id);
+    }
+
+    // Broadcast memory pulse for all used memories
+    broadcastToClients({
+      type: 'memory-pulse',
+      payload: { memoryIds: usedMemoryIds },
+      timestamp: Date.now(),
+    });
+  }
 
   // Build system prompt
   let systemPrompt = `You are Nexus, a personal AI assistant. You are knowledgeable, helpful, and proactive.`;
@@ -204,6 +243,14 @@ async function handleChat(
     { role: 'user' as const, content: request.message },
   ];
 
+  // Send execution trace: calling LLM
+  sendToClient(client, {
+    type: 'execution-trace',
+    id: sessionId,
+    payload: { step: `Generating response with ${config.provider.primary}...`, status: 'active' },
+    timestamp: Date.now(),
+  });
+
   try {
     let fullResponse = '';
 
@@ -221,6 +268,14 @@ async function handleChat(
     }
 
     const latency = Date.now() - startTime;
+
+    // Send execution trace: done
+    sendToClient(client, {
+      type: 'execution-trace',
+      id: sessionId,
+      payload: { step: `Response generated in ${latency}ms`, status: 'done' },
+      timestamp: Date.now(),
+    });
 
     // Store assistant response
     insertConversation({
@@ -263,6 +318,7 @@ async function handleChat(
         model: request.model ?? config.provider.primary,
         provider: providerManager.getPrimaryName(),
         latency_ms: latency,
+        usedMemoryIds,
       },
       timestamp: Date.now(),
     });
@@ -276,6 +332,12 @@ async function handleChat(
     });
   } catch (error: unknown) {
     const err = error as { message: string };
+    sendToClient(client, {
+      type: 'execution-trace',
+      id: sessionId,
+      payload: { step: `Error: ${err.message}`, status: 'error' },
+      timestamp: Date.now(),
+    });
     sendToClient(client, {
       type: 'chat-error',
       id: sessionId,

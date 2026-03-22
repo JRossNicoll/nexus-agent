@@ -42,8 +42,17 @@ export const memoryAPI = {
     fetchAPI<{ updated: boolean }>('/api/memories/' + id, { method: 'PUT', body: JSON.stringify(data) }),
   consolidate: () =>
     fetchAPI<{ merged: number; flagged: number }>('/api/memories/consolidate', { method: 'POST' }),
-  getGraph: () =>
-    fetchAPI<MemoryGraphData>('/api/memories/graph'),
+  getGraph: (params?: { before?: number; cluster?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.before) qs.set('before', String(params.before));
+    if (params?.cluster) qs.set('cluster', params.cluster);
+    return fetchAPI<MemoryGraphDataWithClusters>(`/api/memories/graph?${qs}`);
+  },
+  getHealth: () => fetchAPI<MemoryHealth>('/api/memories/health'),
+  getTimeline: (before: number, limit = 200) =>
+    fetchAPI<SemanticMemory[]>(`/api/memories/timeline?before=${before}&limit=${limit}`),
+  reinforce: (id: string) =>
+    fetchAPI<{ reinforced: boolean }>(`/api/memories/${id}/reinforce`, { method: 'POST' }),
 };
 
 export const structuredAPI = {
@@ -248,6 +257,27 @@ export interface MemoryGraphData {
   edges: MemoryGraphEdge[];
 }
 
+export interface MemoryGraphDataWithClusters extends MemoryGraphData {
+  clusters?: MemoryCluster[];
+}
+
+export interface MemoryCluster {
+  id: string;
+  label: string;
+  nodeIds: string[];
+  color: string;
+}
+
+export interface MemoryHealth {
+  totalMemories: number;
+  addedThisWeek: number;
+  oldestMemory: number | null;
+  mostReferenced: { id: string; content: string; access_count: number } | null;
+  staleMemories: number;
+  totalConversations: number;
+  totalStructured: number;
+}
+
 export interface MemoryGraphNode {
   id: string;
   content: string;
@@ -255,9 +285,11 @@ export interface MemoryGraphNode {
   confidence: number;
   source: string;
   created_at: number;
+  last_accessed: number;
   access_count: number;
   channel?: string;
   conversation_id?: string;
+  tags?: string[];
 }
 
 export interface MemoryGraphEdge {

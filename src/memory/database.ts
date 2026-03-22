@@ -281,17 +281,27 @@ export function getMemoryGraphData(): { nodes: SemanticMemory[]; edges: Array<{ 
   const nodes = rows.map(rowToSemanticMemory);
 
   const edges: Array<{ source: string; target: string; weight: number }> = [];
+  // Stop words to exclude from similarity
+  const stopWords = new Set(['this','that','with','from','they','have','been','also','about','their','which','would','there','could','other','into','more','some','than','them','like','just','over','such','after','most','only','very','when','what','your','will','each','make','were','then','these','know','want','give','well','work','first','even','where','much','take','come','made','find','back','many','long','great','little','world','still','good','does','help']);
   for (let i = 0; i < nodes.length; i++) {
-    const wordsA = new Set(nodes[i].content.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+    const wordsA = new Set(nodes[i].content.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !stopWords.has(w)));
+    const tagsA = new Set((nodes[i].tags ?? []).map(t => t.toLowerCase()));
     for (let j = i + 1; j < nodes.length; j++) {
-      const wordsB = new Set(nodes[j].content.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+      const wordsB = new Set(nodes[j].content.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !stopWords.has(w)));
+      const tagsB = new Set((nodes[j].tags ?? []).map(t => t.toLowerCase()));
       let shared = 0;
-      for (const w of wordsA) {
-        if (wordsB.has(w)) shared++;
-      }
-      const minSize = Math.min(wordsA.size, wordsB.size);
-      if (minSize > 0 && shared / minSize > 0.3) {
-        edges.push({ source: nodes[i].id, target: nodes[j].id, weight: shared / minSize });
+      for (const w of wordsA) { if (wordsB.has(w)) shared++; }
+      // Also count shared tags
+      let sharedTags = 0;
+      for (const t of tagsA) { if (tagsB.has(t)) sharedTags++; }
+      // Same category bonus
+      const catBonus = nodes[i].category === nodes[j].category ? 0.15 : 0;
+      const minSize = Math.min(wordsA.size, wordsB.size) || 1;
+      const tagScore = tagsA.size > 0 && tagsB.size > 0 ? sharedTags / Math.min(tagsA.size, tagsB.size) * 0.4 : 0;
+      const wordScore = shared / minSize;
+      const totalScore = wordScore + tagScore + catBonus;
+      if (totalScore > 0.15) {
+        edges.push({ source: nodes[i].id, target: nodes[j].id, weight: Math.min(totalScore, 1.0) });
       }
     }
   }
@@ -624,4 +634,139 @@ function rowToActivity(row: Record<string, unknown>): ActivityEntry {
     timestamp: row.timestamp as number,
     session_id: row.session_id as string | undefined,
   };
+}
+
+// Skill execution history
+export function createSkillExecutionsTable(): void {
+  const database = getDatabase();
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS skill_executions (
+      id TEXT PRIMARY KEY,
+      skill_name TEXT NOT NULL,
+      triggered_by TEXT,
+      success INTEGER,
+      output TEXT,
+      error TEXT,
+      duration_ms INTEGER,
+      timestamp INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_skill_exec_name ON skill_executions(skill_name);
+    CREATE INDEX IF NOT EXISTS idx_skill_exec_timestamp ON skill_executions(timestamp);
+  `);
+}
+
+export function insertSkillExecution(exec: {
+  skill_name: string;
+  triggered_by: string;
+  success: boolean;
+  output: string;
+  error?: string;
+  duration_ms: number;
+}): string {
+  const database = getDatabase();
+  const id = randomUUID();
+  database.prepare(`
+    INSERT INTO skill_executions (id, skill_name, triggered_by, success, output, error, duration_ms, timestamp)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, exec.skill_name, exec.triggered_by, exec.success ? 1 : 0, exec.output, exec.error ?? null, exec.duration_ms, Date.now());
+  return id;
+}
+
+export function getSkillExecutions(skillName: string, limit = 10): Array<{
+  id: string; skill_name: string; triggered_by: string; success: boolean;
+  output: string; error: string | null; duration_ms: number; timestamp: number;
+}> {
+  const database = getDatabase();
+  const rows = database.prepare(
+    'SELECT * FROM skill_executions WHERE skill_name = ? ORDER BY timestamp DESC LIMIT ?'
+  ).all(skillName, limit) as Array<Record<string, unknown>>;
+  return rows.map(r => ({
+    id: r.id as string,
+    skill_name: r.skill_name as string,
+    triggered_by: r.triggered_by as string,
+    success: !!(r.success as number),
+    output: r.output as string,
+    error: r.error as string | null,
+    duration_ms: r.duration_ms as number,
+    timestamp: r.timestamp as number,
+  }));
+}
+
+// Memory health
+export function getMemoryHealth(): {
+  totalMemories: number;
+  addedThisWeek: number;
+  oldestMemory: number | null;
+  mostReferenced: { id: string; content: string; access_count: number } | null;
+  staleMemories: number;
+  totalConversations: number;
+  totalStructured: number;
+} {
+  const database = getDatabase();
+  const now = Date.now();
+  const oneWeek = 7 * 24 * 60 * 60 * 1000;
+  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+
+  const total = (database.prepare('SELECT COUNT(*) as count FROM memories').get() as { count: number }).count;
+  const addedThisWeek = (database.prepare('SELECT COUNT(*) as count FROM memories WHERE created_at > ?').get(now - oneWeek) as { count: number }).count;
+  const oldest = database.prepare('SELECT MIN(created_at) as oldest FROM memories').get() as { oldest: number | null };
+  const mostRef = database.prepare('SELECT id, content, access_count FROM memories ORDER BY access_count DESC LIMIT 1').get() as { id: string; content: string; access_count: number } | undefined;
+  const stale = (database.prepare('SELECT COUNT(*) as count FROM memories WHERE created_at < ? AND access_count = 0').get(now - thirtyDays) as { count: number }).count;
+  const conversations = (database.prepare('SELECT COUNT(*) as count FROM conversations').get() as { count: number }).count;
+  const structured = (database.prepare('SELECT COUNT(*) as count FROM structured_memory').get() as { count: number }).count;
+
+  return {
+    totalMemories: total,
+    addedThisWeek,
+    oldestMemory: oldest.oldest,
+    mostReferenced: mostRef && mostRef.access_count > 0 ? mostRef : null,
+    staleMemories: stale,
+    totalConversations: conversations,
+    totalStructured: structured,
+  };
+}
+
+// Get memories at a specific point in time (for timeline scrubber)
+export function getMemoriesAtTime(beforeTimestamp: number, limit = 200): SemanticMemory[] {
+  const database = getDatabase();
+  const rows = database.prepare(
+    'SELECT * FROM memories WHERE created_at <= ? ORDER BY created_at DESC LIMIT ?'
+  ).all(beforeTimestamp, limit) as Array<Record<string, unknown>>;
+  return rows.map(rowToSemanticMemory);
+}
+
+// Onboarding state
+export function getOnboardingState(): { completed: boolean; userName?: string; completedAt?: number } {
+  const database = getDatabase();
+  try {
+    database.exec(`CREATE TABLE IF NOT EXISTS onboarding (
+      id TEXT PRIMARY KEY DEFAULT 'default',
+      user_name TEXT,
+      completed INTEGER DEFAULT 0,
+      completed_at INTEGER
+    )`);
+  } catch { /* already exists */ }
+  const row = database.prepare("SELECT * FROM onboarding WHERE id = 'default'").get() as Record<string, unknown> | undefined;
+  if (!row) return { completed: false };
+  return {
+    completed: !!(row.completed as number),
+    userName: row.user_name as string | undefined,
+    completedAt: row.completed_at as number | undefined,
+  };
+}
+
+export function setOnboardingComplete(userName: string): void {
+  const database = getDatabase();
+  try {
+    database.exec(`CREATE TABLE IF NOT EXISTS onboarding (
+      id TEXT PRIMARY KEY DEFAULT 'default',
+      user_name TEXT,
+      completed INTEGER DEFAULT 0,
+      completed_at INTEGER
+    )`);
+  } catch { /* already exists */ }
+  database.prepare(`
+    INSERT OR REPLACE INTO onboarding (id, user_name, completed, completed_at)
+    VALUES ('default', ?, 1, ?)
+  `).run(userName, Date.now());
 }
