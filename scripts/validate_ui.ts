@@ -79,7 +79,7 @@ function testPageContent(): void {
   // Check ChatView has streaming support
   const chatContent = fs.readFileSync(path.join(srcDir, 'components/ChatView.tsx'), 'utf-8');
   assert(chatContent.includes('chat-stream'), 'ChatView handles streaming');
-  assert(chatContent.includes('WebSocket') || chatContent.includes('nexusWS'), 'ChatView uses WebSocket');
+  assert(chatContent.includes('WebSocket') || chatContent.includes('medoWS'), 'ChatView uses WebSocket');
   assert(chatContent.includes('tool-call') || chatContent.includes('toolCalls'), 'ChatView shows tool calls');
 
   // Check MemoryView has both tabs
@@ -138,7 +138,7 @@ function testTailwindConfig(): void {
   const webDir = path.join(import.meta.dirname ?? __dirname, '../web');
   const twContent = fs.readFileSync(path.join(webDir, 'tailwind.config.ts'), 'utf-8');
 
-  assert(twContent.includes('nexus'), 'Tailwind has nexus color palette');
+  assert(twContent.includes('medo'), 'Tailwind has medo color palette');
   assert(twContent.includes('surface'), 'Tailwind has surface colors');
   assert(twContent.includes('animation'), 'Tailwind has custom animations');
   assert(twContent.includes('darkMode'), 'Tailwind has dark mode configured');

@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Loader2, Bot, User, Copy, Check, ChevronDown, ChevronUp, Zap, ArrowDown, Search, Brain, Globe, Cpu, CheckCircle, AlertCircle } from "lucide-react";
-import { nexusWS, type WSMessage } from "@/lib/websocket";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Send, Loader2, Bot, User, Copy, Check, ChevronDown, ChevronUp, Zap, ArrowDown, Search, Brain, Globe, Cpu, CheckCircle, AlertCircle, FileText } from "lucide-react";
+import { medoWS, type WSMessage } from "@/lib/websocket";
 import { cn, formatTimestamp } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 
 interface Message {
   id: string;
@@ -15,6 +18,7 @@ interface Message {
   latency_ms?: number;
   streaming?: boolean;
   toolCalls?: ToolCallInfo[];
+  isProactive?: boolean;
 }
 
 interface ToolCallInfo {
@@ -30,7 +34,104 @@ interface TraceStep {
   timestamp: number;
 }
 
-export default function ChatView() {
+interface ChatViewProps {
+  pendingMessage?: string | null;
+  onPendingConsumed?: () => void;
+}
+
+/* ── Markdown rendering components ── */
+function CodeCopyButton({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button onClick={handleCopy} className="absolute top-2 right-2 p-1.5 rounded transition-opacity opacity-0 group-hover:opacity-100"
+      style={{ background: "var(--bg-raised)" }}>
+      {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-gray-400" />}
+    </button>
+  );
+}
+
+function buildMarkdownComponents(): Components {
+  return {
+    p({ children }) {
+      return <p style={{ fontSize: "13.5px", lineHeight: 1.7, color: "#b8bec9", marginBottom: 10 }}>{children}</p>;
+    },
+    strong({ children }) {
+      return <strong style={{ color: "#c8cdd6", fontWeight: 500 }}>{children}</strong>;
+    },
+    ul({ children }) {
+      return <ul style={{ paddingLeft: 18, marginBottom: 10, color: "#b8bec9" }}>{children}</ul>;
+    },
+    ol({ children }) {
+      return <ol style={{ paddingLeft: 18, marginBottom: 10, color: "#b8bec9" }}>{children}</ol>;
+    },
+    li({ children }) {
+      return <li style={{ marginBottom: 4, lineHeight: 1.6 }}>{children}</li>;
+    },
+    h1({ children }) {
+      return <h1 style={{ fontFamily: "Inter, sans-serif", fontWeight: 600, color: "#c8cdd6", marginBottom: 8, marginTop: 14, fontSize: 16 }}>{children}</h1>;
+    },
+    h2({ children }) {
+      return <h2 style={{ fontFamily: "Inter, sans-serif", fontWeight: 600, color: "#c8cdd6", marginBottom: 8, marginTop: 14, fontSize: 14 }}>{children}</h2>;
+    },
+    h3({ children }) {
+      return <h3 style={{ fontFamily: "Inter, sans-serif", fontWeight: 600, color: "#c8cdd6", marginBottom: 8, marginTop: 14, fontSize: 13 }}>{children}</h3>;
+    },
+    a({ href, children }) {
+      return <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#ff3333", textDecoration: "none" }}
+        onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+        onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>{children}</a>;
+    },
+    blockquote({ children }) {
+      return <blockquote style={{ borderLeft: "2px solid rgba(255,51,51,0.3)", paddingLeft: 12, color: "#7e8899", margin: "8px 0" }}>{children}</blockquote>;
+    },
+    hr() {
+      return <hr style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.07)", margin: "12px 0" }} />;
+    },
+    code({ className, children, ...props }) {
+      const match = /language-(\w+)/.exec(className || "");
+      const isBlock = match || (typeof children === "string" && children.includes("\n"));
+      if (isBlock) {
+        const codeStr = String(children).replace(/\n$/, "");
+        return (
+          <div className="relative group" style={{ marginBottom: 10 }}>
+            {match && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 14px",
+                background: "var(--bg-raised)", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
+                <span style={{ fontSize: 11, fontFamily: "JetBrains Mono, monospace", color: "#7e8899", textTransform: "uppercase", letterSpacing: "0.5px" }}>{match[1]}</span>
+              </div>
+            )}
+            <pre style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: match ? "0 0 8px 8px" : 8, padding: "12px 14px",
+              fontFamily: "JetBrains Mono, monospace", fontSize: 12, overflowX: "auto", margin: 0 }}>
+              <code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}>{codeStr}</code>
+            </pre>
+            <CodeCopyButton code={codeStr} />
+          </div>
+        );
+      }
+      // Inline code
+      return (
+        <code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12,
+          background: "rgba(255,51,51,0.08)", border: "1px solid rgba(255,51,51,0.15)",
+          borderRadius: 4, padding: "1px 6px", color: "rgba(255,51,51,0.85)" }} {...props}>{children}</code>
+      );
+    },
+    pre({ children }) {
+      // The code component handles the actual rendering — just pass children through
+      return <>{children}</>;
+    },
+  };
+}
+
+const mdComponents = buildMarkdownComponents();
+
+export default function ChatView({ pendingMessage, onPendingConsumed }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -42,6 +143,24 @@ export default function ChatView() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Debounced streaming content: buffer raw stream and flush every 50ms
+  const [debouncedMessages, setDebouncedMessages] = useState<Message[]>([]);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    const hasStreaming = messages.some(m => m.streaming);
+    if (hasStreaming) {
+      debounceTimerRef.current = setTimeout(() => {
+        setDebouncedMessages([...messages]);
+      }, 50);
+    } else {
+      // Not streaming — update immediately
+      setDebouncedMessages([...messages]);
+    }
+    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+  }, [messages]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,13 +175,13 @@ export default function ChatView() {
 
   useEffect(() => {
     // WebSocket connection is managed at app level (page.tsx) — no connect() call here
-    const unsubConnect = nexusWS.on("connected", () => setConnected(true));
-    const unsubDisconnect = nexusWS.on("disconnected", () => setConnected(false));
-    const unsubHello = nexusWS.on("hello-ok", () => setConnected(true));
+    const unsubConnect = medoWS.on("connected", () => setConnected(true));
+    const unsubDisconnect = medoWS.on("disconnected", () => setConnected(false));
+    const unsubHello = medoWS.on("hello-ok", () => setConnected(true));
     // Sync initial state
-    setConnected(nexusWS.isConnected());
+    setConnected(medoWS.isConnected());
 
-    const unsubStream = nexusWS.on("chat-stream", (msg: WSMessage) => {
+    const unsubStream = medoWS.on("chat-stream", (msg: WSMessage) => {
       const payload = msg.payload as { content: string; done: boolean };
       setMessages(prev => {
         const last = prev[prev.length - 1];
@@ -74,7 +193,7 @@ export default function ChatView() {
       scrollToBottom();
     });
 
-    const unsubDone = nexusWS.on("chat-done", (msg: WSMessage) => {
+    const unsubDone = medoWS.on("chat-done", (msg: WSMessage) => {
       const payload = msg.payload as { model?: string; provider?: string; latency_ms?: number };
       setMessages(prev => {
         const last = prev[prev.length - 1];
@@ -87,13 +206,13 @@ export default function ChatView() {
       scrollToBottom();
     });
 
-    const unsubError = nexusWS.on("chat-error", (msg: WSMessage) => {
+    const unsubError = medoWS.on("chat-error", (msg: WSMessage) => {
       const payload = msg.payload as { error: string };
       setMessages(prev => [...prev, { id: String(Date.now()), role: "system", content: `Something went wrong. Please try again.`, timestamp: Date.now() }]);
       setIsStreaming(false);
     });
 
-    const unsubToolCall = nexusWS.on("tool-call", (msg: WSMessage) => {
+    const unsubToolCall = medoWS.on("tool-call", (msg: WSMessage) => {
       const payload = msg.payload as { tool: string; input: Record<string, unknown> };
       setMessages(prev => {
         const last = prev[prev.length - 1];
@@ -105,13 +224,19 @@ export default function ChatView() {
       });
     });
 
-    const unsubProactive = nexusWS.on("proactive", (msg: WSMessage) => {
+    const unsubProactive = medoWS.on("proactive", (msg: WSMessage) => {
       const payload = msg.payload as { message: string };
-      setMessages(prev => [...prev, { id: String(Date.now()), role: "assistant", content: payload.message, timestamp: Date.now() }]);
+      setMessages(prev => [...prev, {
+        id: "proactive-" + Date.now(),
+        role: "assistant",
+        content: payload.message,
+        timestamp: Date.now(),
+        isProactive: true,
+      } as Message & { isProactive?: boolean }]);
       scrollToBottom();
     });
 
-    const unsubTrace = nexusWS.on("execution-trace", (msg: WSMessage) => {
+    const unsubTrace = medoWS.on("execution-trace", (msg: WSMessage) => {
       const payload = msg.payload as { step: string; status: string };
       const newStep: TraceStep = { step: payload.step, status: payload.status as TraceStep["status"], timestamp: Date.now() };
       setTraceSteps(prev => {
@@ -129,6 +254,29 @@ export default function ChatView() {
     return () => { unsubConnect(); unsubDisconnect(); unsubHello(); unsubStream(); unsubDone(); unsubError(); unsubToolCall(); unsubProactive(); unsubTrace(); };
   }, [scrollToBottom]);
 
+
+  // First message flag — inject onboarding context into first response
+  const [isFirstMessage, setIsFirstMessage] = useState(false);
+  useEffect(() => {
+    fetch((process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:18799") + "/api/v1/first-message-flag")
+      .then(r => r.json())
+      .then(d => { if (d.firstMessage) setIsFirstMessage(true); })
+      .catch(() => {});
+  }, []);
+
+  // Handle pending message from HomeScreen
+  useEffect(() => {
+    if (pendingMessage && connected && !isStreaming) {
+      setMessages(prev => [...prev, { id: String(Date.now()), role: "user", content: pendingMessage, timestamp: Date.now() }]);
+      setIsStreaming(true);
+      setTraceSteps([]);
+      setTraceCollapsed(false);
+      medoWS.sendChat(pendingMessage);
+      onPendingConsumed?.();
+      scrollToBottom();
+    }
+  }, [pendingMessage, connected, isStreaming, onPendingConsumed, scrollToBottom]);
+
   const sendMessage = () => {
     const trimmed = input.trim();
     if (!trimmed || isStreaming) return;
@@ -136,7 +284,13 @@ export default function ChatView() {
     setIsStreaming(true);
     setTraceSteps([]);
     setTraceCollapsed(false);
-    nexusWS.sendChat(trimmed);
+    // If this is the first message, notify gateway to include onboarding context
+    if (isFirstMessage) {
+      medoWS.send({ type: 'chat', payload: { message: trimmed, channel: 'web', first_message: true } });
+      setIsFirstMessage(false);
+    } else {
+      medoWS.sendChat(trimmed);
+    }
     setInput("");
     inputRef.current?.focus();
     scrollToBottom();
@@ -160,49 +314,20 @@ export default function ChatView() {
     }));
   };
 
-  const renderContent = (content: string) => {
-    const parts = content.split(/(```[\s\S]*?```)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith("```") && part.endsWith("```")) {
-        const lines = part.slice(3, -3);
-        const firstNewline = lines.indexOf("\n");
-        const lang = firstNewline > 0 ? lines.slice(0, firstNewline).trim() : "";
-        const code = firstNewline > 0 ? lines.slice(firstNewline + 1) : lines;
-        return (
-          <div key={i} className="my-3 relative group">
-            {lang && (
-              <div className="flex items-center justify-between px-4 py-1.5 bg-[var(--bg-raised)] rounded-t-lg border-b border-white/[0.04]">
-                <span className="text-[11px] font-mono text-gray-500 uppercase tracking-wider">{lang}</span>
-                <button onClick={() => copyToClipboard(code, `code-${i}`)} className="p-1 rounded text-gray-500 hover:text-gray-300 transition-colors">
-                  {copiedId === `code-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                </button>
-              </div>
-            )}
-            <pre className={cn("!mt-0", lang ? "!rounded-t-none" : "")}>
-              <code>{code}</code>
-            </pre>
-            {!lang && (
-              <button onClick={() => copyToClipboard(code, `code-${i}`)}
-                className="absolute top-2 right-2 p-1.5 rounded bg-[var(--bg-raised)] opacity-0 group-hover:opacity-100 transition-opacity">
-                {copiedId === `code-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-gray-400" />}
-              </button>
-            )}
-          </div>
-        );
-      }
-      const inlineParts = part.split(/(`[^`]+`)/g);
-      return (
-        <span key={i}>
-          {inlineParts.map((ip, j) => {
-            if (ip.startsWith("`") && ip.endsWith("`")) {
-              return <code key={j} className="px-1.5 py-0.5 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded text-[13px] text-[var(--accent)]">{ip.slice(1, -1)}</code>;
-            }
-            return <span key={j}>{ip}</span>;
-          })}
-        </span>
-      );
-    });
+  /* ── Render message content with ReactMarkdown ── */
+  const renderContent = (msg: Message) => {
+    return (
+      <div className="medo-markdown">
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+          {msg.content}
+        </ReactMarkdown>
+        {msg.streaming && <span className="inline-block w-[2px] h-4 bg-[var(--accent)] typing-cursor ml-0.5 align-middle" />}
+      </div>
+    );
   };
+
+  // Use debouncedMessages for rendering to avoid flicker during streaming
+  const displayMessages = debouncedMessages;
 
   return (
     <div className="flex flex-col h-full relative">
@@ -234,12 +359,16 @@ export default function ChatView() {
                     step.status === "active" ? "text-[var(--accent)]" : step.status === "done" ? "text-gray-500" : "text-red-400")}>
                     {step.status === "active" ? (
                       <div className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0">
-                        {step.step.toLowerCase().includes("search") || step.step.toLowerCase().includes("memor") ? (
+                        {step.step.toLowerCase().includes("memory") || step.step.toLowerCase().includes("memory_read") ? (
                           <Brain className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                        ) : step.step.toLowerCase().includes("web") || step.step.toLowerCase().includes("generat") ? (
-                          <Globe className="w-3.5 h-3.5 text-[var(--accent)] animate-pulse" />
-                        ) : step.step.toLowerCase().includes("analyz") ? (
+                        ) : step.step.toLowerCase().includes("web_search") || step.step.toLowerCase().includes("web") ? (
                           <Search className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                        ) : step.step.toLowerCase().includes("file_read") || step.step.toLowerCase().includes("file") ? (
+                          <FileText className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+                        ) : step.step.toLowerCase().includes("skill") ? (
+                          <Zap className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
+                        ) : step.step.toLowerCase().includes("generat") ? (
+                          <Globe className="w-3.5 h-3.5 text-[var(--accent)] animate-pulse" />
                         ) : (
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent)]" />
                         )}
@@ -269,34 +398,41 @@ export default function ChatView() {
           </div>
         )}
 
-        {messages.length === 0 && (
+        {displayMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent)]/10 flex items-center justify-center mb-5 shadow-lg shadow-[var(--accent)]/10">
               <Bot className="w-8 h-8 text-[var(--accent)]" />
             </div>
-            <h2 className="text-lg font-semibold text-white mb-1.5">Welcome to Nexus</h2>
+            <h2 className="text-lg font-semibold text-white mb-1.5">Welcome to Medo</h2>
             <p className="text-sm text-gray-500 max-w-md leading-relaxed">
               Your personal AI agent is ready. Start a conversation, use /commands for skills, or drag and drop files to share.
             </p>
           </div>
         )}
 
-        {messages.map((msg, idx) => (
-          <div key={msg.id} className={cn("flex gap-3 animate-fade-in max-w-4xl mx-auto", msg.role === "user" ? "justify-end" : "justify-start")}>
+        {displayMessages.map((msg, idx) => (
+          <div key={msg.id} className={cn("flex gap-3 max-w-4xl mx-auto", msg.role === "user" ? "justify-end" : "justify-start", msg.isProactive ? "animate-slideDown" : "animate-fade-in")}>
             {msg.role !== "user" && (
               <div className={cn("flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5",
                 msg.role === "system" ? "bg-red-500/10" : "bg-[var(--accent)]/15")}>
                 <Bot className={cn("w-4 h-4", msg.role === "system" ? "text-red-400" : "text-[var(--accent)]")} />
               </div>
             )}
-            <div className={cn("max-w-2xl rounded-xl px-4 py-2.5",
-              msg.role === "user" ? "bg-[var(--accent)]/15 text-white border border-[var(--accent)]/20"
+            <div className={cn("max-w-2xl rounded-xl px-4 py-2.5 relative",
+              msg.isProactive ? "bg-[var(--bg-surface)] text-gray-200 border-l-2 border-l-[var(--accent)] border border-white/[0.04]"
+              : msg.role === "user" ? "bg-[var(--accent)]/15 text-white border border-[var(--accent)]/20"
                 : msg.role === "system" ? "bg-red-500/10 text-red-300 border border-red-500/20"
                 : "bg-[var(--bg-surface)] text-gray-200 border border-white/[0.04]")}>
-              <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                {renderContent(msg.content)}
-                {msg.streaming && <span className="inline-block w-[2px] h-4 bg-[var(--accent)] typing-cursor ml-0.5 align-middle" />}
-              </div>
+              {msg.isProactive && (
+                <div style={{ position: "absolute", top: 6, right: 10, fontSize: 9, fontFamily: "var(--font-mono)", color: "var(--accent)", opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  MEDO reached out
+                </div>
+              )}
+              {msg.role === "user" ? (
+                <div className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</div>
+              ) : (
+                renderContent(msg)
+              )}
               {/* Thinking dots */}
               {msg.streaming && !msg.content && (
                 <div className="flex items-center gap-1.5 py-1">
@@ -312,7 +448,11 @@ export default function ChatView() {
                     <div key={tIdx} className="border border-white/[0.06] rounded-lg overflow-hidden bg-[var(--bg-surface)]">
                       <button onClick={() => toggleToolCall(idx, tIdx)}
                         className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-400 hover:bg-white/[0.03] transition-colors">
-                        <Zap className="w-3 h-3 text-amber-400" />
+                        {tc.tool.includes("memory") ? <Brain className="w-3 h-3 text-emerald-400" />
+                          : tc.tool.includes("web_search") || tc.tool.includes("search") ? <Search className="w-3 h-3 text-amber-400" />
+                          : tc.tool.includes("file") || tc.tool.includes("read") ? <FileText className="w-3 h-3 text-blue-400" />
+                          : tc.tool.includes("skill") ? <Zap className="w-3 h-3 text-yellow-400" />
+                          : <Zap className="w-3 h-3 text-amber-400" />}
                         <span className="font-mono text-amber-300/80">{tc.tool}</span>
                         {tc.expanded ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
                       </button>
@@ -365,7 +505,7 @@ export default function ChatView() {
         <div className="flex gap-2.5 items-end max-w-4xl mx-auto">
           <div className="flex-1 relative">
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-              placeholder="Message Nexus... (/ for commands)" rows={1}
+              placeholder="Message Medo... (/ for commands)" rows={1}
               className="w-full px-4 py-2.5 bg-[var(--bg-surface)] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 text-sm resize-none focus:outline-none focus:border-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--accent)]/20 transition-all"
               style={{"minHeight": "42px", "maxHeight": "200px"}} />
           </div>

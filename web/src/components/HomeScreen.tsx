@@ -50,16 +50,15 @@ export default function HomeScreen({ onSend, onNavigate }: HomeScreenProps) {
         transform: 'translateX(-50%)',
         width: 2,
         height: '35%',
-        background: 'linear-gradient(to bottom, rgba(45,140,255,0.18), rgba(45,140,255,0.03), transparent)',
+        background: 'linear-gradient(to bottom, rgba(255,51,51,0.18), rgba(255,51,51,0.03), transparent)',
         animation: 'beam 3s ease-in-out infinite',
       }} />
 
-      {/* Logo */}
+      {/* Logo — matching landing page triangle */}
       <div style={{ marginBottom: 32, position: 'relative' }}>
-        <svg width="52" height="52" viewBox="0 0 26 26" fill="none">
-          <path d="M13 2L3 7.5V18.5L13 24L23 18.5V7.5L13 2Z" stroke="rgba(45,140,255,0.52)" strokeWidth="1.1" fill="none"/>
-          <path d="M13 7L7 10.5V15.5L13 19L19 15.5V10.5L13 7Z" fill="rgba(45,140,255,0.07)" stroke="rgba(45,140,255,0.32)" strokeWidth="0.8"/>
-          <circle cx="13" cy="13" r="2.2" fill="rgba(45,140,255,0.88)"/>
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 22h20L12 2z" fill="#ff3333" />
+          <path d="M12 9l-3 6h6l-3-6z" fill="#0a0a0a" />
         </svg>
         {/* Glow */}
         <div style={{
@@ -68,7 +67,7 @@ export default function HomeScreen({ onSend, onNavigate }: HomeScreenProps) {
           transform: 'translate(-50%, -50%)',
           width: 80, height: 80,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(45,140,255,0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255,51,51,0.08) 0%, transparent 70%)',
           pointerEvents: 'none',
         }} />
       </div>
@@ -109,7 +108,7 @@ export default function HomeScreen({ onSend, onNavigate }: HomeScreenProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask NEXUS anything..."
+          placeholder="Ask MEDO anything..."
           style={{
             flex: 1,
             background: 'transparent',
@@ -122,7 +121,7 @@ export default function HomeScreen({ onSend, onNavigate }: HomeScreenProps) {
         />
         <div style={{
           fontSize: 10,
-          color: 'var(--text-3)',
+          color: 'var(--text-4)',
           fontFamily: 'var(--font-mono)',
           padding: '3px 8px',
           background: 'var(--bg-raised)',
@@ -180,7 +179,7 @@ export default function HomeScreen({ onSend, onNavigate }: HomeScreenProps) {
               transition: 'all 0.15s',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-mid)';
+              e.currentTarget.style.borderColor = 'rgba(255,51,51,0.25)';
               e.currentTarget.style.color = 'var(--text-1)';
             }}
             onMouseLeave={(e) => {

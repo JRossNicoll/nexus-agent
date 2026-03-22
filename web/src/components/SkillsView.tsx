@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { nexusWS, type WSMessage } from "@/lib/websocket";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { medoWS, type WSMessage } from "@/lib/websocket";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:18799";
 
@@ -9,7 +9,7 @@ interface Skill {
   name: string;
   description: string;
   enabled: boolean;
-  triggers: { type: string; value?: string }[];
+  triggers: { type?: string; cron?: string; keyword?: string; value?: string }[];
   last_run?: string;
   last_result?: string;
   run_count?: number;
@@ -20,6 +20,15 @@ interface SkillRun {
   success: boolean;
   duration_ms: number;
   output?: string;
+  error?: string;
+}
+
+interface SkillExecutionEvent {
+  skill_id: string;
+  success: boolean;
+  duration_ms: number;
+  output_preview: string;
+  error?: string;
 }
 
 export default function SkillsView() {
@@ -34,6 +43,8 @@ export default function SkillsView() {
   const [skillRuns, setSkillRuns] = useState<Record<string, SkillRun[]>>({});
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [runningSkill, setRunningSkill] = useState<string | null>(null);
+  const [failedSkills, setFailedSkills] = useState<Record<string, { error: string; duration_ms: number }>>({});
+  const skillCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const fetchSkills = useCallback(async () => {
     try {
@@ -50,9 +61,31 @@ export default function SkillsView() {
   useEffect(() => { fetchSkills(); }, [fetchSkills]);
 
   useEffect(() => {
-    const unsub = nexusWS.on("skill-suggestion", (msg: WSMessage) => {
+    const unsub = medoWS.on("skill-suggestion", (msg: WSMessage) => {
       const p = msg.payload as { suggestion: string };
       if (p.suggestion) setSuggestion(p.suggestion);
+    });
+    return unsub;
+  }, []);
+
+  // Listen for skill_execution_complete WS events — update card without page refresh
+  useEffect(() => {
+    const unsub = medoWS.on("skill_execution_complete", (msg: WSMessage) => {
+      const p = msg.payload as SkillExecutionEvent;
+      setRunningSkill(prev => prev === p.skill_id ? null : prev);
+      if (p.success) {
+        setFailedSkills(prev => { const next = { ...prev }; delete next[p.skill_id]; return next; });
+        setSkillRuns(prev => ({
+          ...prev,
+          [p.skill_id]: [{ timestamp: new Date().toISOString(), success: true, duration_ms: p.duration_ms, output: p.output_preview }, ...(prev[p.skill_id] || []).slice(0, 9)],
+        }));
+      } else {
+        setFailedSkills(prev => ({ ...prev, [p.skill_id]: { error: p.error || "Execution failed", duration_ms: p.duration_ms } }));
+        setSkillRuns(prev => ({
+          ...prev,
+          [p.skill_id]: [{ timestamp: new Date().toISOString(), success: false, duration_ms: p.duration_ms, error: p.error }, ...(prev[p.skill_id] || []).slice(0, 9)],
+        }));
+      }
     });
     return unsub;
   }, []);
@@ -89,18 +122,24 @@ export default function SkillsView() {
 
   const runSkill = async (name: string) => {
     setRunningSkill(name);
+    setFailedSkills(prev => { const next = { ...prev }; delete next[name]; return next; });
     try {
-      const res = await fetch(`${GATEWAY}/api/v1/skills/${name}/run`, { method: "POST" });
+      const res = await fetch(`${GATEWAY}/api/skills/${encodeURIComponent(name)}/run`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        setSkillRuns(prev => ({
-          ...prev,
-          [name]: [{ timestamp: new Date().toISOString(), success: true, duration_ms: data.duration_ms || 0, output: data.output || data.result || "Completed" }, ...(prev[name] || []).slice(0, 4)],
-        }));
-        fetchSkills();
-      }
-    } catch { /* ignore */ }
-    finally { setRunningSkill(null); }
+        if (!data.success) setRunningSkill(null);
+        // WS event will handle the UI update
+      } else { setRunningSkill(null); }
+    } catch { setRunningSkill(null); }
+  };
+
+  const formatError = (raw: string): string => {
+    if (raw.includes("ECONNREFUSED")) return "Could not connect to the service";
+    if (raw.includes("timeout")) return "The operation took too long";
+    if (raw.includes("401") || raw.includes("403")) return "Authentication failed";
+    if (raw.includes("rate_limit") || raw.includes("429")) return "Rate limited - try again later";
+    if (raw.length > 100) return raw.slice(0, 97) + "...";
+    return raw;
   };
 
   const toggleSkill = async (name: string, enabled: boolean) => {
@@ -119,9 +158,9 @@ export default function SkillsView() {
       <div style={{
         height: 48, borderBottom: "1px solid var(--border)",
         display: "flex", alignItems: "center", padding: "0 20px", gap: 10,
-        background: "rgba(12,14,18,0.6)", backdropFilter: "blur(12px)",
+        background: "rgba(10,10,10,0.6)", backdropFilter: "blur(12px)",
       }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(45,140,255,0.38)" strokeWidth="1.8">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,51,51,0.38)" strokeWidth="1.8">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
         </svg>
         <div style={{ color: "var(--text-2)", fontSize: 12.5, fontWeight: 500, flex: 1 }}>Skills</div>
@@ -133,7 +172,7 @@ export default function SkillsView() {
         {suggestion && (
           <div style={{
             padding: "12px 16px", marginBottom: 16,
-            background: "rgba(45,140,255,0.06)", border: "1px solid rgba(45,140,255,0.12)",
+            background: "rgba(255,51,51,0.06)", border: "1px solid rgba(255,51,51,0.12)",
             borderRadius: "var(--r-md)", display: "flex", alignItems: "center", gap: 12,
           }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8">
@@ -187,14 +226,18 @@ export default function SkillsView() {
 
         {/* Skills grid */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-          {skills.map(skill => (
-            <div key={skill.name} style={{
+          {skills.map(skill => {
+            const isFailed = !!failedSkills[skill.name];
+            const isRunning = runningSkill === skill.name;
+            const failure = failedSkills[skill.name];
+            return (
+            <div key={skill.name} ref={el => { skillCardRefs.current[skill.name] = el; }} className={isRunning ? "skill-sweep" : ""} data-skill-name={skill.name} style={{
               padding: "14px 16px", background: "var(--bg-surface)",
-              border: "1px solid var(--border)", borderRadius: "var(--r-md)",
-              display: "flex", flexDirection: "column", gap: 8,
+              border: isFailed ? "1px solid rgba(235,185,90,0.4)" : "1px solid var(--border)", borderRadius: "var(--r-md)",
+              display: "flex", flexDirection: "column", gap: 8, position: "relative", transition: "border-color 0.3s",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={isFailed ? "rgba(235,185,90,0.75)" : "var(--accent)"} strokeWidth="1.8">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
                 </svg>
                 <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{skill.name}</div>
@@ -213,15 +256,21 @@ export default function SkillsView() {
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-3)" }}>
                 {skill.triggers?.map((t, i) => (
                   <span key={i} style={{ padding: "2px 6px", background: "var(--bg-raised)", borderRadius: 4, border: "1px solid var(--border)" }}>
-                    {t.type}: {t.value || "manual"}
+                    {t.cron ? `cron: ${t.cron}` : t.keyword ? `keyword: ${t.keyword}` : t.type ? `${t.type}: ${t.value || "manual"}` : "manual"}
                   </span>
                 ))}
-                {skill.last_run && <span>{skill.last_run}</span>}
               </div>
+              {/* Failure UI */}
+              {isFailed && failure && (
+                <div style={{ marginTop: 4, padding: "8px 10px", background: "rgba(235,185,90,0.06)", borderRadius: "var(--r-sm)", border: "1px solid rgba(235,185,90,0.15)" }}>
+                  <div style={{ fontSize: 11, color: "rgba(235,185,90,0.85)", marginBottom: 6 }}>{formatError(failure.error)}</div>
+                  <button onClick={() => runSkill(skill.name)} style={{ padding: "4px 12px", background: "rgba(235,185,90,0.12)", color: "rgba(235,185,90,0.9)", border: "1px solid rgba(235,185,90,0.25)", borderRadius: "var(--r-sm)", fontSize: 11, cursor: "pointer" }}>Retry</button>
+                </div>
+              )}
               <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                <button onClick={() => runSkill(skill.name)} disabled={runningSkill === skill.name}
+                <button onClick={() => runSkill(skill.name)} disabled={isRunning}
                   style={{ padding: "4px 10px", background: "var(--bg-raised)", color: "var(--text-2)", border: "1px solid var(--border)", borderRadius: "var(--r-sm)", fontSize: 11, cursor: "pointer" }}>
-                  {runningSkill === skill.name ? "Running..." : "Run now"}
+                  {isRunning ? "Running..." : "Run now"}
                 </button>
                 <button onClick={() => setExpandedSkill(expandedSkill === skill.name ? null : skill.name)}
                   style={{ padding: "4px 10px", background: "var(--bg-raised)", color: "var(--text-3)", border: "1px solid var(--border)", borderRadius: "var(--r-sm)", fontSize: 11, cursor: "pointer" }}>
@@ -236,18 +285,20 @@ export default function SkillsView() {
                     skillRuns[skill.name].map((run, i) => (
                       <div key={i} style={{ padding: "4px 0", fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--text-2)", borderBottom: i < skillRuns[skill.name].length - 1 ? "1px solid var(--border)" : "none" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: run.success ? "#5ec26a" : "#eb645a" }} />
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: run.success ? "#5ec26a" : "rgba(235,185,90,0.75)" }} />
                           <span>{new Date(run.timestamp).toLocaleString()}</span>
                           <span style={{ color: "var(--text-3)" }}>{run.duration_ms}ms</span>
                         </div>
                         {run.output && <div style={{ marginTop: 4, fontSize: 10, color: "var(--text-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{run.output.substring(0, 100)}</div>}
+                        {run.error && <div style={{ marginTop: 4, fontSize: 10, color: "rgba(235,185,90,0.75)" }}>{formatError(run.error)}</div>}
                       </div>
                     ))
                   )}
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
 
           {/* Create skill card */}
           <div onClick={() => setCreating(true)} style={{

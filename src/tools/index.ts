@@ -2,7 +2,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
-import type { ToolDefinition, NexusConfig } from '../types/index.js';
+import type { ToolDefinition, MedoConfig } from '../types/index.js';
 import {
   searchMemoriesByText,
   setStructuredMemory,
@@ -13,7 +13,7 @@ import {
 const execAsync = promisify(exec);
 
 export interface ToolContext {
-  config: NexusConfig;
+  config: MedoConfig;
   sessionId: string;
   workspaceDir?: string;
   execAllowlist?: {
@@ -91,7 +91,7 @@ toolHandlers['web_fetch'] = async (args, ctx) => {
   const start = Date.now();
   try {
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'Nexus-Agent/0.1' },
+      headers: { 'User-Agent': 'Medo-Agent/0.1' },
       signal: AbortSignal.timeout(15000),
     });
     const text = await response.text();

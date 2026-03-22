@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import QueryProvider from '@/lib/query-provider';
 
 export const metadata: Metadata = {
-  title: 'NEXUS — Personal AI Agent',
-  description: 'Enhanced Personal AI Agent Platform',
+  title: 'MEDO — Personal AI Agent',
+  description: 'Your intelligent personal AI assistant with memory, skills, and proactive insights.',
 };
 
 export default function RootLayout({
@@ -13,8 +14,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-screen" style={{ background: '#0c0e12' }}>
-        {children}
+      <body className="min-h-screen" style={{ background: '#0a0a0a' }}>
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

@@ -1,13 +1,13 @@
 import { Bot } from 'grammy';
-import type { NexusConfig } from '../types/index.js';
+import type { MedoConfig } from '../types/index.js';
 import { insertConversation, insertActivity } from '../memory/database.js';
 
 export class TelegramChannel {
   private bot: Bot | null = null;
-  private config: NexusConfig;
+  private config: MedoConfig;
   private onMessage: ((content: string, channel: string, respond: (text: string) => Promise<void>) => Promise<void>) | null = null;
 
-  constructor(config: NexusConfig) {
+  constructor(config: MedoConfig) {
     this.config = config;
   }
 

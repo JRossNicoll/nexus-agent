@@ -5,7 +5,7 @@
  */
 
 import { ProviderManager } from '../src/providers/index.js';
-import type { NexusConfig } from '../src/types/index.js';
+import type { MedoConfig } from '../src/types/index.js';
 import { initDatabase, closeDatabase } from '../src/memory/database.js';
 import path from 'path';
 import fs from 'fs';
@@ -24,7 +24,7 @@ function assert(condition: boolean, message: string): void {
 }
 
 // Create a test config
-function createTestConfig(overrides?: Partial<NexusConfig['provider']>): NexusConfig {
+function createTestConfig(overrides?: Partial<MedoConfig['provider']>): MedoConfig {
   return {
     provider: {
       primary: 'anthropic/claude-sonnet-4-6',
@@ -136,7 +136,7 @@ async function main(): Promise<void> {
   console.log('=== Provider Validation ===\n');
 
   // Initialize a temp database for logging
-  const tmpDb = '/tmp/nexus-test-providers.db';
+  const tmpDb = '/tmp/medo-test-providers.db';
   try { fs.unlinkSync(tmpDb); } catch {}
   initDatabase(tmpDb);
 

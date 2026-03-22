@@ -1,6 +1,24 @@
-# NEXUS — Enhanced Personal AI Agent Platform
+# MEDO — Enhanced Personal AI Agent Platform
 
 A self-hosted, LLM-agnostic personal AI agent platform with a beautiful web UI, structured inspectable memory, and proactive intelligence.
+
+## Install
+
+**One command. That's it.**
+
+**Mac / Linux:**
+```bash
+git clone https://github.com/JRossNicoll/nexus-agent.git medo && cd medo && ./setup.sh
+```
+
+**Windows:**
+```powershell
+git clone https://github.com/JRossNicoll/nexus-agent.git medo; cd medo; .\setup.bat
+```
+
+This will install dependencies, build the web UI, start Medo, and open your browser automatically. The onboarding flow will guide you through adding your API key — no config files to edit.
+
+> **Requirements:** [Node.js 18+](https://nodejs.org) and [Git](https://git-scm.com)
 
 ## Features
 
@@ -10,30 +28,27 @@ A self-hosted, LLM-agnostic personal AI agent platform with a beautiful web UI, 
 - **Skills System** — Markdown-based skills with cron triggers, keyword triggers, and hot-reload
 - **Proactive Intelligence** — Background worker that surfaces insights without being asked
 - **Tool System** — exec, web_search, web_fetch, memory operations, file I/O, and more
-- **Beautiful Web UI** — Next.js 14 + Tailwind + shadcn/ui with Chat, Memory, Skills, Activity, and Settings
+- **Beautiful Web UI** — Next.js 14 + Tailwind with Chat, Memory Graph, Skills, Activity, and Settings
 
-## Quick Start
+## Quick Start (if already installed)
 
 ```bash
-# Install
-npm install
+# Start Medo
+./setup.sh
 
-# Start gateway in foreground
+# Or start manually
 npm run dev
 
-# Or start as daemon
-npx nexus start
+# Chat from CLI
+npx medo chat "Hello, Medo!"
 
 # Check status
-npx nexus status
-
-# Chat from CLI
-npx nexus chat "Hello, Nexus!"
+npx medo status
 ```
 
 ## Configuration
 
-Configuration is stored at `~/.nexus/config.json`. On first run, defaults are created automatically.
+Configuration is stored at `~/.medo/config.json`. On first run, defaults are created automatically.
 
 ```json
 {
@@ -49,7 +64,7 @@ Configuration is stored at `~/.nexus/config.json`. On first run, defaults are cr
   },
   "gateway": {
     "port": 18799,
-    "auth": { "token": "${NEXUS_GATEWAY_TOKEN}" }
+    "auth": { "token": "${MEDO_GATEWAY_TOKEN}" }
   },
   "memory": {
     "embeddingModel": "openai/text-embedding-3-small",
@@ -92,16 +107,16 @@ Configuration is stored at `~/.nexus/config.json`. On first run, defaults are cr
 ## CLI Commands
 
 ```bash
-nexus start              # Start gateway daemon
-nexus stop               # Stop gateway daemon
-nexus status             # Show gateway health
-nexus chat "message"     # Send a message
-nexus memory search "q"  # Search memories
-nexus memory set k v     # Write structured memory
-nexus skill add FILE     # Install a skill
-nexus skill list         # List skills
-nexus logs --follow      # Tail gateway logs
-nexus doctor             # Diagnose issues
+medo start              # Start gateway daemon
+medo stop               # Stop gateway daemon
+medo status             # Show gateway health
+medo chat "message"     # Send a message
+medo memory search "q"  # Search memories
+medo memory set k v     # Write structured memory
+medo skill add FILE     # Install a skill
+medo skill list         # List skills
+medo logs --follow      # Tail gateway logs
+medo doctor             # Diagnose issues
 ```
 
 ## Validation

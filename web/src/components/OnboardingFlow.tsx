@@ -111,7 +111,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         const welcome = await onboardingAPI.getWelcome();
         setWelcomeMsg(welcome.message);
       } catch {
-        setWelcomeMsg("Welcome to NEXUS! I'm ready to help you.");
+        setWelcomeMsg("Welcome to MEDO! I'm ready to help you.");
       } finally {
         setLoadingWelcome(false);
       }
@@ -165,8 +165,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }));
 
     const catColors: Record<string, string> = {
-      fact: "#6366f1", preference: "#a855f7", event: "#ec4899",
-      document: "#3b82f6", insight: "#f59e0b",
+      fact: "#ff3333", preference: "#ff5555", event: "#ff7777",
+      document: "#cc2222", insight: "#ebb95a",
     };
 
     const sim = d3.forceSimulation<MiniNode>(nodes)
@@ -182,7 +182,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     const nodeEls = svg.append("g")
       .selectAll("circle").data(nodes).join("circle")
       .attr("r", d => d.radius)
-      .attr("fill", d => catColors[d.category] || "#6366f1")
+      .attr("fill", d => catColors[d.category] || "#ff3333")
       .attr("opacity", 0.8)
       .attr("stroke", "#ffffff15").attr("stroke-width", 1);
 
@@ -241,7 +241,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   <Sparkles className="w-8 h-8 text-white" />
                 </div>
               </div>
-              <h1 className="text-2xl font-bold text-white text-center mb-2">Welcome to NEXUS</h1>
+              <h1 className="text-2xl font-bold text-white text-center mb-2">Welcome to MEDO</h1>
               <p className="text-gray-400 text-center text-sm mb-8">
                 Your personal AI agent that learns, remembers, and proactively helps you.
               </p>
@@ -283,7 +283,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onClick={() => setData(d => ({ ...d, provider: p.id, keyName: p.keyName, apiKey: "", keyTested: false }))}
                     className={`w-full text-left p-4 rounded-xl border transition-all ${
                       data.provider === p.id
-                        ? "bg-[var(--accent)]/10 border-indigo-500/40 ring-1 ring-[var(--accent)]/20"
+                        ? "bg-[var(--accent)]/10 border-[#ff3333]/40 ring-1 ring-[var(--accent)]/20"
                         : "bg-[var(--bg-surface)] border-white/[0.06] hover:border-white/[0.12]"
                     }`}
                   >
@@ -329,7 +329,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   <button
                     onClick={handleTestKey}
                     disabled={testing || !data.apiKey.trim()}
-                    className="px-5 py-3 bg-[var(--accent)] hover:bg-indigo-600 disabled:bg-[var(--bg-raised)] disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+                    className="px-5 py-3 bg-[var(--accent)] hover:bg-[#cc2222] disabled:bg-[var(--bg-raised)] disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
                   >
                     {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Test"}
                   </button>
@@ -380,8 +380,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     </div>
                     <div className="p-5 space-y-5">
                       <p className="text-sm text-gray-400 leading-relaxed">
-                        An API key is like a password that lets NEXUS talk to an AI service.
-                        Think of it like giving NEXUS permission to use a smart assistant on your behalf.
+                        An API key is like a password that lets MEDO talk to an AI service.
+                        Think of it like giving MEDO permission to use a smart assistant on your behalf.
                         Here&apos;s how to get one:
                       </p>
 
@@ -390,7 +390,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                           <span className="w-7 h-7 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
                           <div>
                             <p className="text-sm text-white font-medium">Go to the Anthropic website</p>
-                            <p className="text-xs text-gray-400 mt-1">Anthropic is the company that makes Claude, the AI that powers NEXUS. Visit their website to create a free account.</p>
+                            <p className="text-xs text-gray-400 mt-1">Anthropic is the company that makes Claude, the AI that powers MEDO. Visit their website to create a free account.</p>
                             <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 mt-1.5 text-xs text-[var(--accent)] hover:underline">
                               Open console.anthropic.com <ExternalLink className="w-3 h-3" />
@@ -422,7 +422,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                           <span className="w-7 h-7 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
                           <div>
                             <p className="text-sm text-white font-medium">Create a new key</p>
-                            <p className="text-xs text-gray-400 mt-1">Click the &ldquo;Create Key&rdquo; button. Give it a name like &ldquo;NEXUS&rdquo; so you remember what it&apos;s for. Click &ldquo;Create&rdquo;.</p>
+                            <p className="text-xs text-gray-400 mt-1">Click the &ldquo;Create Key&rdquo; button. Give it a name like &ldquo;MEDO&rdquo; so you remember what it&apos;s for. Click &ldquo;Create&rdquo;.</p>
                           </div>
                         </div>
 
@@ -457,10 +457,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <h2 className="text-xl font-bold text-white">Connect Telegram</h2>
               </div>
               <p className="text-gray-400 text-sm mb-4">
-                Connect Telegram so NEXUS can reach you outside the browser. This is optional.
+                Connect Telegram so MEDO can reach you outside the browser. This is optional.
               </p>
               <p className="text-xs text-gray-500 mb-6">
-                Telegram is a free messaging app. Connecting it lets NEXUS send you messages and
+                Telegram is a free messaging app. Connecting it lets MEDO send you messages and
                 respond to you on your phone, even when this browser tab is closed.
               </p>
 
@@ -477,7 +477,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   </li>
                   <li className="flex gap-3">
                     <span className="w-5 h-5 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                    <span>Choose a name (e.g. <span className="text-white">My NEXUS Bot</span>) and a username (e.g. <span className="text-white">mynexus_bot</span>)</span>
+                    <span>Choose a name (e.g. <span className="text-white">My MEDO Bot</span>) and a username (e.g. <span className="text-white">mymedo_bot</span>)</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-5 h-5 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
@@ -511,7 +511,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <h2 className="text-xl font-bold text-white">Tell me about yourself</h2>
               </div>
               <p className="text-gray-400 text-sm mb-6">
-                Help NEXUS get to know you. Everything here is optional — answer what feels natural.
+                Help MEDO get to know you. Everything here is optional — answer what feels natural.
               </p>
 
               <div className="space-y-5">
@@ -577,7 +577,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               {loadingWelcome ? (
                 <div className="bg-[var(--bg-surface)] rounded-xl p-4 border border-white/[0.06] mb-5 flex items-center gap-3">
                   <Loader2 className="w-4 h-4 text-[var(--accent)] animate-spin" />
-                  <span className="text-sm text-gray-400">NEXUS is preparing a message for you...</span>
+                  <span className="text-sm text-gray-400">MEDO is preparing a message for you...</span>
                 </div>
               ) : welcomeMsg && (
                 <div className="bg-[var(--bg-surface)] rounded-xl p-4 border border-white/[0.06] mb-5">
@@ -600,7 +600,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 />
                 <button
                   onClick={onComplete}
-                  className="px-4 py-2 bg-[var(--accent)] hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-[var(--accent)] hover:bg-[#cc2222] text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2"
                 >
                   Send <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -627,7 +627,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <button
                   onClick={nextStep}
                   disabled={!canProceed() || submitting}
-                  className="px-5 py-2.5 bg-[var(--accent)] hover:bg-indigo-600 disabled:bg-[var(--bg-raised)] disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+                  className="px-5 py-2.5 bg-[var(--accent)] hover:bg-[#cc2222] disabled:bg-[var(--bg-raised)] disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
                 >
                   {submitting ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Setting up...</>

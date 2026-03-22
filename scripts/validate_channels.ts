@@ -36,8 +36,8 @@ async function startGateway(): Promise<void> {
   gateway = spawn('npx', ['tsx', entryPath], {
     env: {
       ...process.env,
-      NEXUS_GATEWAY_PORT: String(PORT),
-      HOME: '/tmp/nexus-test-channels',
+      MEDO_GATEWAY_PORT: String(PORT),
+      HOME: '/tmp/medo-test-channels',
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });

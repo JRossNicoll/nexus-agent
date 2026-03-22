@@ -3,6 +3,7 @@
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  onLogoClick?: () => void;
 }
 
 const navItems = [
@@ -24,7 +25,7 @@ function NavIcon({ svgPath, size = 15 }: { svgPath: string; size?: number }) {
   );
 }
 
-export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange, onLogoClick }: SidebarProps) {
   return (
     <aside style={{
       width: 56,
@@ -37,12 +38,15 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       gap: 4,
       flexShrink: 0,
     }}>
-      {/* Logo */}
-      <div style={{ marginBottom: 12, cursor: 'pointer' }} onClick={() => onTabChange('home')}>
-        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-          <path d="M13 2L3 7.5V18.5L13 24L23 18.5V7.5L13 2Z" stroke="rgba(45,140,255,0.52)" strokeWidth="1.1" fill="none"/>
-          <path d="M13 7L7 10.5V15.5L13 19L19 15.5V10.5L13 7Z" fill="rgba(45,140,255,0.07)" stroke="rgba(45,140,255,0.32)" strokeWidth="0.8"/>
-          <circle cx="13" cy="13" r="2.2" fill="rgba(45,140,255,0.88)"/>
+      {/* Logo — links back to landing page */}
+      <div
+        style={{ marginBottom: 12, cursor: 'pointer' }}
+        onClick={onLogoClick || (() => onTabChange('home'))}
+        title="Back to MEDO home"
+      >
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 22h20L12 2z" fill="#ff3333" />
+          <path d="M12 9l-3 6h6l-3-6z" fill="#0a0a0a" />
         </svg>
       </div>
 
@@ -65,7 +69,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               cursor: 'pointer',
               transition: 'all 0.15s',
               position: 'relative',
-              border: isActive ? '1px solid rgba(45,140,255,0.12)' : '1px solid transparent',
+              border: isActive ? '1px solid rgba(255,51,51,0.15)' : '1px solid transparent',
               background: isActive ? 'var(--accent-low)' : 'transparent',
               padding: 0,
             }}
@@ -110,7 +114,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           cursor: 'pointer',
           transition: 'all 0.15s',
           position: 'relative',
-          border: activeTab === 'settings' ? '1px solid rgba(45,140,255,0.12)' : '1px solid transparent',
+          border: activeTab === 'settings' ? '1px solid rgba(255,51,51,0.15)' : '1px solid transparent',
           background: activeTab === 'settings' ? 'var(--accent-low)' : 'transparent',
           padding: 0,
         }}

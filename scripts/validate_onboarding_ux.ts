@@ -3,8 +3,8 @@
  * Tests: API key guide modal, Telegram skip button, plain English text
  */
 
-const GATEWAY = process.env.NEXUS_GATEWAY ?? 'http://localhost:18799';
-const WEB_UI = process.env.NEXUS_WEB ?? 'http://localhost:18800';
+const GATEWAY = process.env.MEDO_GATEWAY ?? 'http://localhost:18799';
+const WEB_UI = process.env.MEDO_WEB ?? 'http://localhost:18800';
 
 let passed = 0;
 let failed = 0;
@@ -106,7 +106,7 @@ async function validateOnboardingUISource(): Promise<void> {
   assert(source.includes('even when this browser tab is closed'), 'Explains why Telegram is useful');
 
   // Screen structure checks
-  assert(source.includes('Welcome to NEXUS'), 'Screen 1: Welcome title present');
+  assert(source.includes('Welcome to MEDO'), 'Screen 1: Welcome title present');
   assert(source.includes('Choose your brain'), 'Screen 2: Choose your brain title present');
   assert(source.includes('Connect Telegram'), 'Screen 3: Connect Telegram title present');
   assert(source.includes('Tell me about yourself'), 'Screen 4: Tell me about yourself title present');
@@ -120,7 +120,7 @@ async function validateOnboardingUISource(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  console.log('=== NEXUS Onboarding UX Validation ===');
+  console.log('=== MEDO Onboarding UX Validation ===');
 
   await validateOnboardingEndpoints();
   await validateOnboardingUISource();

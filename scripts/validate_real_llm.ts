@@ -47,11 +47,11 @@ async function fetchJSON(path: string, options?: RequestInit): Promise<unknown> 
 
 // Start the gateway as a child process
 async function startGateway(): Promise<void> {
-  console.log('\n🚀 Starting NEXUS gateway...');
+  console.log('\n🚀 Starting MEDO gateway...');
   
   return new Promise((resolve, reject) => {
     gatewayProcess = spawn('npx', ['tsx', 'src/gateway/index.ts'], {
-      cwd: '/home/ubuntu/nexus-agent',
+      cwd: '/home/ubuntu/medo-agent',
       env: { ...process.env },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -63,7 +63,7 @@ async function startGateway(): Promise<void> {
 
     gatewayProcess.stdout?.on('data', (data: Buffer) => {
       const output = data.toString();
-      if (output.includes('Nexus is ready') && !started) {
+      if (output.includes('Medo is ready') && !started) {
         started = true;
         clearTimeout(timeout);
         console.log('  Gateway started successfully');
@@ -221,7 +221,7 @@ async function testConversationStorage(): Promise<void> {
   console.log('\n📋 Test 4: Conversation Stored in Memory');
   
   // Send a distinctive message
-  const uniquePhrase = `nexus-test-${Date.now()}`;
+  const uniquePhrase = `medo-test-${Date.now()}`;
   await fetchJSON('/v1/chat/completions', {
     method: 'POST',
     body: JSON.stringify({
@@ -432,7 +432,7 @@ async function testMemoryHealth(): Promise<void> {
 // ==========================================
 async function main(): Promise<void> {
   console.log('╔══════════════════════════════════════╗');
-  console.log('║   NEXUS Real LLM Validation Script   ║');
+  console.log('║   MEDO Real LLM Validation Script   ║');
   console.log('║      Sprint 3 — Checkpoint 1         ║');
   console.log('╚══════════════════════════════════════╝');
 

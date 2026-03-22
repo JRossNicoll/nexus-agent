@@ -4,7 +4,7 @@ import matter from 'gray-matter';
 import { watch } from 'chokidar';
 import type { Skill, SkillConfig, SkillTrigger } from '../types/index.js';
 
-const SKILLS_DIR = path.join(process.env.HOME ?? '~', '.nexus', 'skills');
+const SKILLS_DIR = path.join(process.env.HOME ?? '~', '.medo', 'skills');
 
 export class SkillManager {
   private skills: Map<string, Skill> = new Map();

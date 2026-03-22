@@ -1,4 +1,4 @@
-export interface NexusConfig {
+export interface MedoConfig {
   provider: ProviderConfig;
   gateway: GatewayConfig;
   memory: MemoryConfig;
@@ -149,7 +149,9 @@ export type WSMessageType =
   | 'auth-ok'
   | 'auth-fail'
   | 'thinking'
-  | 'execution-trace';
+  | 'execution-trace'
+  | 'skill_execution_complete'
+  | 'skill-suggestion';
 
 export interface WSMessage {
   type: WSMessageType;

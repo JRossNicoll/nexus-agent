@@ -8,6 +8,12 @@ import {
   insertConversation,
   insertActivity,
   insertPendingTask,
+  getMemories,
+  getActivityTimestamps,
+  getPreferredContactWindow,
+  setPreferredContactWindow,
+  getLastProactiveSent,
+  setLastProactiveSent,
 } from '../memory/database.js';
 
 export interface ProactiveConfig {
@@ -34,12 +40,89 @@ const DEFAULT_PROACTIVE_CONFIG: ProactiveConfig = {
   briefingTime: '07:00',
 };
 
+/**
+ * Quality gate: checks that a proactive message references at least one memory's actual content.
+ * Returns true if the message contains a direct reference to at least one memory's content.
+ */
+export function passesQualityGate(message: string, memories: Array<{ content: string }>): boolean {
+  if (!message || memories.length === 0) return false;
+  const msgLower = message.toLowerCase();
+
+  for (const mem of memories) {
+    // Extract meaningful phrases from the memory (at least 4 words long)
+    const words = mem.content.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    // Check if at least 3 significant words from the memory appear in the message
+    let matchCount = 0;
+    for (const word of words) {
+      if (msgLower.includes(word)) matchCount++;
+    }
+    // A memory is "referenced" if 3+ significant words appear, or if a substantial substring matches
+    if (matchCount >= 3) return true;
+
+    // Also check for longer phrase matches (6+ char substrings)
+    const phrases = mem.content.split(/[.!?;,]/).map(p => p.trim().toLowerCase()).filter(p => p.length > 15);
+    for (const phrase of phrases) {
+      if (msgLower.includes(phrase)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Calculate the user's most active 2-hour window from activity timestamps.
+ */
+function calculatePreferredWindow(timestamps: number[]): { startHour: number; endHour: number } {
+  // Count activity per hour over the past 14 days
+  const hourCounts = new Array(24).fill(0);
+  for (const ts of timestamps) {
+    const hour = new Date(ts).getHours();
+    hourCounts[hour]++;
+  }
+
+  // Find the 2-hour block with most activity
+  let bestStart = 9; // default: 9-11
+  let bestCount = 0;
+  for (let h = 0; h < 24; h++) {
+    const count = hourCounts[h] + hourCounts[(h + 1) % 24];
+    if (count > bestCount) {
+      bestCount = count;
+      bestStart = h;
+    }
+  }
+
+  return { startHour: bestStart, endHour: (bestStart + 2) % 24 };
+}
+
+/**
+ * Check if the current time is within the preferred contact window.
+ */
+function isInContactWindow(): boolean {
+  const window = getPreferredContactWindow();
+  if (!window) return true; // No window set, allow any time
+  const currentHour = new Date().getHours();
+  if (window.startHour <= window.endHour) {
+    return currentHour >= window.startHour && currentHour < window.endHour;
+  }
+  // Wraps around midnight
+  return currentHour >= window.startHour || currentHour < window.endHour;
+}
+
+/**
+ * Check if enough time has passed since the last proactive message (2 hours minimum).
+ */
+function canSendTimingCheck(): boolean {
+  const lastSent = getLastProactiveSent();
+  const twoHours = 2 * 60 * 60 * 1000;
+  return (Date.now() - lastSent) >= twoHours;
+}
+
 export class ProactiveWorker {
   private config: ProactiveConfig;
   private providerManager: ProviderManager;
   private patternTimer: ReturnType<typeof setInterval> | null = null;
   private briefingTimer: ReturnType<typeof setInterval> | null = null;
   private reminderTimer: ReturnType<typeof setInterval> | null = null;
+  private windowTimer: ReturnType<typeof setInterval> | null = null;
   private messagesToday = 0;
   private lastResetDate = '';
   private lastPatternCheck = 0;
@@ -77,6 +160,10 @@ export class ProactiveWorker {
     }
     console.log('Proactive worker starting (pattern: ' + this.config.intervalMs + 'ms, briefing: ' + this.config.briefingTime + ')');
 
+    // Recalculate preferred contact window every hour
+    this.updateContactWindow();
+    this.windowTimer = setInterval(() => this.updateContactWindow(), 60 * 60 * 1000);
+
     if (this.config.patternDetection) {
       this.patternTimer = setInterval(() => {
         this.runPatternDetection().catch(err => console.error('Pattern detection error:', err));
@@ -100,6 +187,19 @@ export class ProactiveWorker {
     if (this.patternTimer) { clearInterval(this.patternTimer); this.patternTimer = null; }
     if (this.briefingTimer) { clearInterval(this.briefingTimer); this.briefingTimer = null; }
     if (this.reminderTimer) { clearInterval(this.reminderTimer); this.reminderTimer = null; }
+    if (this.windowTimer) { clearInterval(this.windowTimer); this.windowTimer = null; }
+  }
+
+  private updateContactWindow(): void {
+    try {
+      const timestamps = getActivityTimestamps(14);
+      if (timestamps.length >= 5) {
+        const window = calculatePreferredWindow(timestamps);
+        setPreferredContactWindow(window.startHour, window.endHour);
+      }
+    } catch (err) {
+      console.error('Failed to update contact window:', err);
+    }
   }
 
   private resetDailyCounter(): void {
@@ -111,8 +211,13 @@ export class ProactiveWorker {
   }
 
   private canSendMessage(): boolean {
+    // MEDO_FORCE_PROACTIVE=true bypasses all timing checks (testing only)
+    if (process.env.MEDO_FORCE_PROACTIVE === 'true') return true;
     this.resetDailyCounter();
-    return this.messagesToday < this.config.maxPerDay;
+    if (this.messagesToday >= this.config.maxPerDay) return false;
+    if (!canSendTimingCheck()) return false;
+    if (!isInContactWindow()) return false;
+    return true;
   }
 
   async runPatternDetection(): Promise<void> {
@@ -124,6 +229,7 @@ export class ProactiveWorker {
     try {
       const recentConversations = getRecentConversations(30);
       const structuredMemory = getAllStructuredMemory();
+      const memories = getMemories(50);
       if (recentConversations.length < 3) return;
 
       const conversationSummary = recentConversations
@@ -133,29 +239,62 @@ export class ProactiveWorker {
         .slice(0, 20)
         .map(m => m.key + ': ' + m.value)
         .join('\n');
+      const memoryContents = memories.slice(0, 30)
+        .map(m => '- ' + m.content.slice(0, 150))
+        .join('\n');
 
-      const prompt = 'You are a proactive personal AI assistant analyzing patterns.\n\n'
-        + 'Recent conversations (last 30):\n' + conversationSummary + '\n\n'
-        + 'Structured memory:\n' + memorySummary + '\n\n'
-        + 'Identify patterns or insights the user has not asked about. Examples:\n'
-        + '- "You\'ve mentioned feeling tired 4 times this week"\n'
-        + '- "You have 3 tasks you said you\'d do that haven\'t been mentioned since"\n\n'
-        + 'Rules:\n'
-        + '- Only surface genuinely useful, non-obvious patterns\n'
-        + '- Rate confidence 0-1\n'
-        + '- If confidence < ' + this.config.confidenceThreshold + ': {"send": false}\n'
-        + '- If worth saying: {"send": true, "confidence": 0.X, "message": "your message"}\n'
-        + '- Under 200 words. Warm and direct.';
+      // Quality gate: up to 3 attempts
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const prompt = 'You are a proactive personal AI assistant analyzing patterns.\n\n'
+          + 'Recent conversations (last 30):\n' + conversationSummary + '\n\n'
+          + 'Structured memory:\n' + memorySummary + '\n\n'
+          + 'Available memories:\n' + memoryContents + '\n\n'
+          + 'Identify patterns or insights the user has not asked about. Examples:\n'
+          + '- "You\'ve mentioned feeling tired 4 times this week"\n'
+          + '- "You have 3 tasks you said you\'d do that haven\'t been mentioned since"\n\n'
+          + 'Rules:\n'
+          + '- CRITICAL: You MUST reference a specific memory by its actual content — not a generic observation\n'
+          + '- Include direct quotes or specific details from the memories listed above\n'
+          + '- Only surface genuinely useful, non-obvious patterns\n'
+          + '- Rate confidence 0-1\n'
+          + '- If confidence < ' + this.config.confidenceThreshold + ': {"send": false}\n'
+          + '- If worth saying: {"send": true, "confidence": 0.X, "message": "your message"}\n'
+          + '- Under 200 words. Warm and direct.'
+          + (attempt > 1 ? '\n\nPREVIOUS ATTEMPT REJECTED: Your message was too generic. You MUST quote or directly reference specific content from the memories listed above. Be concrete and specific.' : '');
 
-      const response = await this.providerManager.chatComplete([
-        { role: 'system', content: prompt },
-        { role: 'user', content: 'Analyze recent patterns.' },
-      ]);
+        const response = await this.providerManager.chatComplete([
+          { role: 'system', content: prompt },
+          { role: 'user', content: 'Analyze recent patterns.' },
+        ]);
 
-      const parsed = this.parseProactiveResponse(response);
-      if (parsed.send && parsed.confidence >= this.config.confidenceThreshold) {
-        await this.sendProactiveMessage(parsed.message, parsed.confidence, 'pattern_detection');
+        const parsed = this.parseProactiveResponse(response);
+        if (parsed.send && parsed.confidence >= this.config.confidenceThreshold) {
+          // Quality gate check
+          if (passesQualityGate(parsed.message, memories)) {
+            await this.sendProactiveMessage(parsed.message, parsed.confidence, 'pattern_detection');
+            return;
+          }
+          console.log(`Proactive quality gate failed (attempt ${attempt}/3): message too generic`);
+          insertActivity({
+            type: 'proactive',
+            summary: `Quality gate rejected (attempt ${attempt}/3)`,
+            details: parsed.message.slice(0, 200),
+            timestamp: Date.now(),
+          });
+        } else {
+          // LLM said don't send, respect that
+          return;
+        }
       }
+
+      // All 3 attempts failed quality gate — suppress entirely
+      console.log('Proactive message suppressed: all 3 attempts failed quality gate');
+      insertActivity({
+        type: 'proactive',
+        summary: 'Message suppressed: failed quality gate 3 times',
+        details: 'All attempts were too generic to send',
+        timestamp: Date.now(),
+      });
     } catch (error) {
       console.error('Pattern detection error:', error);
     }
@@ -196,7 +335,7 @@ export class ProactiveWorker {
 
       const response = await this.providerManager.chatComplete([
         { role: 'system', content: prompt },
-        { role: 'user', content: "Generate today's morning briefing." },
+        { role: 'user', content: "Generate today\'s morning briefing." },
       ]);
       const parsed = this.parseProactiveResponse(response);
       if (parsed.send) {
@@ -265,12 +404,39 @@ export class ProactiveWorker {
     }
   }
 
+  async forceProactive(): Promise<void> {
+    const memories = getMemories(50);
+    const recentConversations = getRecentConversations(30);
+    if (recentConversations.length === 0 && memories.length === 0) {
+      await this.sendProactiveMessage('I noticed you haven\'t started any conversations yet. I\'m here whenever you\'re ready to chat!', 0.9, 'forced_test');
+      return;
+    }
+    const memoryContents = memories.slice(0, 10).map(m => '- ' + m.content.slice(0, 150)).join('\n');
+    const conversationSummary = recentConversations.slice(0, 5).map(c => '[' + c.role + '] ' + c.content.slice(0, 200)).join('\n');
+    try {
+      const response = await this.providerManager.chatComplete([
+        { role: 'system', content: 'You are a proactive AI assistant. Generate a short, helpful observation based on the user\'s recent activity and memories. Reference specific memory content. Under 100 words.\n\nMemories:\n' + memoryContents + '\n\nRecent conversations:\n' + conversationSummary },
+        { role: 'user', content: 'Generate a proactive insight.' },
+      ]);
+      const parsed = this.parseProactiveResponse(response);
+      if (parsed.send && parsed.message) {
+        await this.sendProactiveMessage(parsed.message, parsed.confidence || 0.9, 'forced_test');
+      } else {
+        const firstMem = memories[0]?.content?.slice(0, 100) || 'your recent activity';
+        await this.sendProactiveMessage('Based on what I know about ' + firstMem + ', I thought you might find it useful to review your memory graph for patterns.', 0.85, 'forced_test');
+      }
+    } catch {
+      await this.sendProactiveMessage('I\'ve been analyzing your recent conversations and noticed some interesting patterns in your memory graph. Take a look when you get a chance!', 0.8, 'forced_test');
+    }
+  }
+
   async tick(): Promise<void> {
     await this.runPatternDetection();
   }
 
   private async sendProactiveMessage(message: string, confidence: number, source: string): Promise<void> {
     this.messagesToday++;
+    setLastProactiveSent(Date.now());
     insertConversation({
       session_id: 'proactive-' + source,
       role: 'assistant',
@@ -303,7 +469,7 @@ export class ProactiveWorker {
     return { send: false, confidence: 0, message: '' };
   }
 
-  getStatus(): { enabled: boolean; messagesToday: number; maxPerDay: number; intervalMs: number; behaviors: { patternDetection: boolean; dailyBriefing: boolean; smartReminders: boolean } } {
+  getStatus(): { enabled: boolean; messagesToday: number; maxPerDay: number; intervalMs: number; behaviors: { patternDetection: boolean; dailyBriefing: boolean; smartReminders: boolean }; contactWindow: { startHour: number; endHour: number } | null; lastProactiveSent: number } {
     return {
       enabled: this.config.enabled,
       messagesToday: this.messagesToday,
@@ -314,6 +480,8 @@ export class ProactiveWorker {
         dailyBriefing: this.config.dailyBriefing,
         smartReminders: this.config.smartReminders,
       },
+      contactWindow: getPreferredContactWindow(),
+      lastProactiveSent: getLastProactiveSent(),
     };
   }
 

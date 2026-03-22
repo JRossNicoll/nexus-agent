@@ -1,9 +1,9 @@
-import type { NexusConfig } from '../types/index.js';
+import type { MedoConfig } from '../types/index.js';
 
 export class EmbeddingService {
-  private config: NexusConfig;
+  private config: MedoConfig;
 
-  constructor(config: NexusConfig) {
+  constructor(config: MedoConfig) {
     this.config = config;
   }
 

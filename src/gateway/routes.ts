@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { NexusConfig, HealthResponse } from '../types/index.js';
+import type { MedoConfig, HealthResponse } from '../types/index.js';
 import { ProviderManager } from '../providers/index.js';
 import { SkillManager } from '../skills/index.js';
 import {
@@ -37,6 +37,8 @@ import {
   getSkillExecutions,
   createSkillExecutionsTable,
   reinforceMemory,
+  getFirstMessageFlag,
+  setFirstMessageFlag,
 } from '../memory/database.js';
 import bcrypt from 'bcryptjs';
 import { getConnectedClientsCount, broadcastToClients } from './websocket.js';
@@ -47,10 +49,10 @@ const startTime = Date.now();
 
 export function setupRoutes(
   app: FastifyInstance,
-  config: NexusConfig,
+  config: MedoConfig,
   providerManager: ProviderManager,
   skillManager: SkillManager,
-  proactiveWorker?: { getStatus: () => Record<string, unknown>; getConfig: () => Record<string, unknown> },
+  proactiveWorker?: { getStatus: () => Record<string, unknown>; getConfig: () => Record<string, unknown>; forceProactive?: () => Promise<void> },
 ): void {
   // Ensure skill executions table exists
   try { createSkillExecutionsTable(); } catch { /* ignore */ }
@@ -95,6 +97,38 @@ export function setupRoutes(
       role: m.role as 'system' | 'user' | 'assistant',
       content: m.content,
     }));
+
+    // First-message experience: inject onboarding context into system prompt for REST API too
+    if (getFirstMessageFlag()) {
+      const structured = getAllStructuredMemory();
+      const userName = structured.find(s => s.key === 'user.name')?.value;
+      const userWork = structured.find(s => s.key === 'user.work')?.value;
+      const userGoals = structured.find(s => s.key === 'user.goals')?.value;
+      const userGoodDay = structured.find(s => s.key === 'user.goodDay')?.value;
+      const addendum = `\n\nIMPORTANT — This is the user's FIRST message after completing onboarding. You must:
+1. Answer their question thoroughly
+2. Weave in specific details from what they shared during onboarding — NOT as a list, naturally woven into the response
+3. End with one proactive observation that makes the user feel understood
+
+Here is what they told you during onboarding:
+- Name: ${userName || 'unknown'}
+- Work: ${userWork || 'not shared'}
+- Goals: ${userGoals || 'not shared'}
+- What a good day looks like: ${userGoodDay || 'not shared'}
+
+Reference these details naturally in your response. Do NOT just repeat them back as a list.`;
+
+      // Prepend system message with onboarding context
+      const hasSystem = messages.some(m => m.role === 'system');
+      if (hasSystem) {
+        const sysMsg = messages.find(m => m.role === 'system');
+        if (sysMsg) sysMsg.content += addendum;
+      } else {
+        messages.unshift({ role: 'system', content: `You are Medo, a personal AI assistant.${addendum}` });
+      }
+
+      setFirstMessageFlag(false);
+    }
 
     // Store user message
     const lastUserMsg = body.messages.filter(m => m.role === 'user').pop();
@@ -221,8 +255,8 @@ export function setupRoutes(
     return {
       object: 'list',
       data: [
-        { id: config.provider.primary, object: 'model', owned_by: 'nexus' },
-        { id: config.provider.fallback, object: 'model', owned_by: 'nexus' },
+        { id: config.provider.primary, object: 'model', owned_by: 'medo' },
+        { id: config.provider.fallback, object: 'model', owned_by: 'medo' },
       ],
     };
   });
@@ -518,7 +552,7 @@ export function setupRoutes(
     }
 
     try {
-      const prompt = `You are a skill generator for the NEXUS personal AI agent. A skill is a markdown file with YAML frontmatter. Generate a skill based on this user description:
+      const prompt = `You are a skill generator for the MEDO personal AI agent. A skill is a markdown file with YAML frontmatter. Generate a skill based on this user description:
 
 "${body.description}"
 
@@ -568,25 +602,53 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
         { max_tokens: 1000 },
       );
 
+      const duration_ms = Date.now() - start;
       insertSkillExecution({
         skill_name: skill.config.name,
         triggered_by: 'manual',
         success: true,
         output: response.slice(0, 2000),
-        duration_ms: Date.now() - start,
+        duration_ms,
+      });
+
+      // Broadcast skill_execution_complete via WebSocket
+      broadcastToClients({
+        type: 'skill_execution_complete',
+        payload: {
+          skill_id: skill.config.name,
+          success: true,
+          duration_ms,
+          output_preview: response.slice(0, 200),
+        },
+        timestamp: Date.now(),
       });
 
       return { success: true, output: response };
     } catch (error: unknown) {
       const err = error as { message: string };
+      const duration_ms = Date.now() - start;
       insertSkillExecution({
         skill_name: skill.config.name,
         triggered_by: 'manual',
         success: false,
         output: '',
         error: err.message,
-        duration_ms: Date.now() - start,
+        duration_ms,
       });
+
+      // Broadcast failure via WebSocket
+      broadcastToClients({
+        type: 'skill_execution_complete',
+        payload: {
+          skill_id: skill.config.name,
+          success: false,
+          duration_ms,
+          output_preview: '',
+          error: err.message,
+        },
+        timestamp: Date.now(),
+      });
+
       return { success: false, error: err.message };
     }
   });
@@ -611,7 +673,7 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
   // Config API
   app.get('/api/config', async () => {
     // Return config with masked API keys
-    const masked = JSON.parse(JSON.stringify(config)) as NexusConfig;
+    const masked = JSON.parse(JSON.stringify(config)) as MedoConfig;
     for (const key of Object.keys(masked.provider.apiKeys)) {
       const val = masked.provider.apiKeys[key];
       if (val && !val.startsWith('http') && !val.startsWith('$')) {
@@ -622,7 +684,7 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
   });
 
   app.put('/api/config', async (request) => {
-    const body = request.body as Partial<NexusConfig>;
+    const body = request.body as Partial<MedoConfig>;
     Object.assign(config, body);
     saveConfig(config);
     return { updated: true };
@@ -681,18 +743,37 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     return { enabled: false };
   });
 
-  // Provider test endpoint (uses configured provider)
-  app.post('/api/providers/test', async (request) => {
-    const body = request.body as { provider?: string };
+  // Force proactive delivery (only when MEDO_FORCE_PROACTIVE=true)
+  app.post('/api/proactive/force', async () => {
+    if (process.env.MEDO_FORCE_PROACTIVE !== 'true') {
+      return { success: false, error: 'MEDO_FORCE_PROACTIVE env var is not set to true' };
+    }
+    if (!proactiveWorker || !proactiveWorker.forceProactive) {
+      return { success: false, error: 'Proactive worker not available' };
+    }
     try {
-      const response = await providerManager.chatComplete(
-        [{ role: 'user', content: 'Say hello in exactly one word.' }],
-        { max_tokens: 10 },
-      );
-      return { success: true, response: response.slice(0, 100), provider: body.provider ?? config.provider.primary };
+      await proactiveWorker.forceProactive();
+      return { success: true, message: 'Proactive message sent via WebSocket' };
     } catch (error: unknown) {
       const err = error as { message: string };
       return { success: false, error: err.message };
+    }
+  });
+
+  // Provider test endpoint (uses configured provider) — real API call with max_tokens:1
+  app.post('/api/providers/test', async (request) => {
+    const body = request.body as { provider?: string };
+    const testStart = Date.now();
+    try {
+      await providerManager.chatComplete(
+        [{ role: 'user', content: 'ping' }],
+        { max_tokens: 1 },
+      );
+      const latency = Date.now() - testStart;
+      return { success: true, latency_ms: latency, message: `Connected · ${latency}ms`, provider: body.provider ?? config.provider.primary };
+    } catch (error: unknown) {
+      const err = error as { message: string };
+      return { success: false, latency_ms: Date.now() - testStart, message: 'Failed — check your API key', error: err.message };
     }
   });
 
@@ -755,6 +836,9 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
 
     // Save user name
     setOnboardingComplete(body.userName);
+
+    // Set first-message flag so the first chat response references onboarding context
+    setFirstMessageFlag(true);
 
     // Store user info in structured memory
     setStructuredMemory({
@@ -847,7 +931,7 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
   app.get('/api/onboarding/welcome', async () => {
     const state = getOnboardingState();
     if (!state.completed) {
-      return { message: 'Welcome to NEXUS! Complete onboarding to get started.' };
+      return { message: 'Welcome to MEDO! Complete onboarding to get started.' };
     }
 
     const memories = getMemories(20);
@@ -857,7 +941,7 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
       const response = await providerManager.chatComplete([
         {
           role: 'system',
-          content: `You are Nexus, a personal AI assistant. The user just completed onboarding. Their name is ${state.userName}. Here is what you know about them:\n${memoryContext}\n\nGenerate a warm, personalized welcome message that demonstrates you actually read and remembered what they told you. Keep it under 150 words. Be friendly and helpful. Reference specific things they mentioned.`,
+          content: `You are Medo, a personal AI assistant. The user just completed onboarding. Their name is ${state.userName}. Here is what you know about them:\n${memoryContext}\n\nGenerate a warm, personalized welcome message that demonstrates you actually read and remembered what they told you. Keep it under 150 words. Be friendly and helpful. Reference specific things they mentioned.`,
         },
         { role: 'user', content: 'Send me a welcome message.' },
       ], { max_tokens: 300 });
@@ -878,10 +962,21 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
       return { message: response };
     } catch (error: unknown) {
       const err = error as { message: string };
-      return { message: `Welcome to NEXUS, ${state.userName}! I'm ready to help you. ${err.message ? '' : ''}` };
+      return { message: `Welcome to MEDO, ${state.userName}! I'm ready to help you. ${err.message ? '' : ''}` };
     }
   });
 
+
+
+  // First-message flag endpoint
+  app.get('/api/v1/first-message-flag', async () => {
+    return { firstMessage: getFirstMessageFlag() };
+  });
+
+  app.post('/api/v1/first-message-flag/clear', async () => {
+    setFirstMessageFlag(false);
+    return { cleared: true };
+  });
 
   // === Settings API (for SettingsView) ===
 
@@ -986,6 +1081,72 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     const typeFilter = query.type;
     const activities = getActivities(limit, 0, typeFilter);
     return activities;
+  });
+
+  // Activity sessions — group activities by 2-hour windows
+  app.get('/api/v1/activity/sessions', async (request) => {
+    const query = request.query as { limit?: string };
+    const limit = parseInt(query.limit ?? '200', 10);
+    const activities = getActivities(limit, 0);
+    
+    // Sort by timestamp descending
+    const sorted = [...activities].sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+    
+    // Group into sessions (2-hour window)
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    const sessions: Array<{
+      id: string;
+      startTime: number;
+      endTime: number;
+      duration: number;
+      activities: typeof sorted;
+      summary?: string;
+    }> = [];
+    
+    let currentSession: typeof sessions[0] | null = null;
+    for (const activity of sorted) {
+      const ts = activity.timestamp ?? Date.now();
+      if (!currentSession || (currentSession.startTime - ts) > TWO_HOURS) {
+        currentSession = {
+          id: `session-${sessions.length}`,
+          startTime: ts,
+          endTime: ts,
+          duration: 0,
+          activities: [activity],
+        };
+        sessions.push(currentSession);
+      } else {
+        currentSession.activities.push(activity);
+        currentSession.startTime = Math.min(currentSession.startTime, ts);
+        currentSession.endTime = Math.max(currentSession.endTime, ts);
+        currentSession.duration = currentSession.endTime - currentSession.startTime;
+      }
+    }
+    
+    return sessions;
+  });
+
+  // Summarize a session using LLM (with caching)
+  const sessionSummaryCache = new Map<string, string>();
+  app.post('/api/v1/activity/sessions/summarize', async (request) => {
+    const body = request.body as { sessionId: string; activities: Array<{ type: string; summary: string }> };
+    
+    // Check cache first
+    const cached = sessionSummaryCache.get(body.sessionId);
+    if (cached) return { summary: cached, cached: true };
+    
+    try {
+      const activityList = body.activities.map(a => `[${a.type}] ${a.summary}`).join('\n');
+      const response = await providerManager.chatComplete([
+        { role: 'system', content: 'Summarize what was accomplished in this session in a single sentence. Be concise and specific.' },
+        { role: 'user', content: activityList },
+      ], { max_tokens: 100 });
+      
+      sessionSummaryCache.set(body.sessionId, response);
+      return { summary: response, cached: false };
+    } catch {
+      return { summary: `${body.activities.length} activities`, cached: false };
+    }
   });
 
   // Memories endpoint (for MemoryView)

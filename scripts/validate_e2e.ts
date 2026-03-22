@@ -34,7 +34,7 @@ async function startGateway(): Promise<void> {
   console.log('Starting gateway on test port ' + PORT + '...');
   const entryPath = path.join(import.meta.dirname ?? __dirname, '../src/gateway/index.ts');
   gateway = spawn('npx', ['tsx', entryPath], {
-    env: { ...process.env, NEXUS_GATEWAY_PORT: String(PORT), HOME: '/tmp/nexus-test-e2e' },
+    env: { ...process.env, MEDO_GATEWAY_PORT: String(PORT), HOME: '/tmp/medo-test-e2e' },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   gateway.stdout?.on('data', (data: Buffer) => {
