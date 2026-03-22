@@ -8,12 +8,15 @@ import SkillsView from '@/components/SkillsView';
 import ActivityView from '@/components/ActivityView';
 import SettingsView from '@/components/SettingsView';
 import AuthGate from '@/components/AuthGate';
-import { authAPI } from '@/lib/api';
+import OnboardingFlow from '@/components/OnboardingFlow';
+import { authAPI, onboardingAPI } from '@/lib/api';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('chat');
   const [authenticated, setAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(false);
 
   useEffect(() => {
     // Check if auth is required
@@ -29,7 +32,23 @@ export default function Home() {
       .finally(() => setCheckingAuth(false));
   }, []);
 
-  if (checkingAuth) {
+  // Check onboarding status after auth
+  useEffect(() => {
+    if (!authenticated) return;
+    setCheckingOnboarding(true);
+    onboardingAPI.getStatus()
+      .then((status) => {
+        if (!status.completed) {
+          setNeedsOnboarding(true);
+        }
+      })
+      .catch(() => {
+        // If we can't check, assume no onboarding needed
+      })
+      .finally(() => setCheckingOnboarding(false));
+  }, [authenticated]);
+
+  if (checkingAuth || checkingOnboarding) {
     return (
       <div className="flex items-center justify-center h-screen bg-surface-0">
         <div className="flex items-center gap-3 text-gray-500">
@@ -42,6 +61,10 @@ export default function Home() {
 
   if (!authenticated) {
     return <AuthGate onAuthenticated={() => setAuthenticated(true)} />;
+  }
+
+  if (needsOnboarding) {
+    return <OnboardingFlow onComplete={() => setNeedsOnboarding(false)} />;
   }
 
   const renderContent = () => {

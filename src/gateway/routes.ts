@@ -680,7 +680,7 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     return { enabled: false };
   });
 
-  // Provider test endpoint
+  // Provider test endpoint (uses configured provider)
   app.post('/api/providers/test', async (request) => {
     const body = request.body as { provider?: string };
     try {
@@ -692,6 +692,50 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     } catch (error: unknown) {
       const err = error as { message: string };
       return { success: false, error: err.message };
+    }
+  });
+
+  // Test an arbitrary API key (for onboarding before config is saved)
+  app.post('/api/providers/test-key', async (request) => {
+    const body = request.body as { provider: string; apiKey: string };
+    if (!body.provider || !body.apiKey) {
+      return { success: false, error: 'Provider and API key are required' };
+    }
+    try {
+      if (body.provider === 'anthropic') {
+        const { default: Anthropic } = await import('@anthropic-ai/sdk');
+        const client = new Anthropic({ apiKey: body.apiKey });
+        const msg = await client.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 10,
+          messages: [{ role: 'user', content: 'Say hello in one word.' }],
+        });
+        const text = msg.content[0]?.type === 'text' ? msg.content[0].text : '';
+        return { success: true, response: text.slice(0, 100), provider: 'anthropic' };
+      } else if (body.provider === 'openai') {
+        const { default: OpenAI } = await import('openai');
+        const client = new OpenAI({ apiKey: body.apiKey });
+        const res = await client.chat.completions.create({
+          model: 'gpt-4o-mini',
+          max_tokens: 10,
+          messages: [{ role: 'user', content: 'Say hello in one word.' }],
+        });
+        return { success: true, response: res.choices[0]?.message?.content?.slice(0, 100) ?? '', provider: 'openai' };
+      } else if (body.provider === 'openrouter') {
+        const { default: OpenAI } = await import('openai');
+        const client = new OpenAI({ apiKey: body.apiKey, baseURL: 'https://openrouter.ai/api/v1' });
+        const res = await client.chat.completions.create({
+          model: 'anthropic/claude-3.5-sonnet',
+          max_tokens: 10,
+          messages: [{ role: 'user', content: 'Say hello in one word.' }],
+        });
+        return { success: true, response: res.choices[0]?.message?.content?.slice(0, 100) ?? '', provider: 'openrouter' };
+      } else {
+        return { success: false, error: `Unsupported provider: ${body.provider}` };
+      }
+    } catch (error: unknown) {
+      const err = error as { message: string };
+      return { success: false, error: err.message || 'API key test failed' };
     }
   });
 
@@ -799,7 +843,7 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
   });
 
   // Generate welcome message based on onboarding data
-  app.post('/api/onboarding/welcome', async () => {
+  app.get('/api/onboarding/welcome', async () => {
     const state = getOnboardingState();
     if (!state.completed) {
       return { message: 'Welcome to NEXUS! Complete onboarding to get started.' };

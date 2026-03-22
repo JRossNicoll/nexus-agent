@@ -125,6 +125,22 @@ export const authAPI = {
 export const providerAPI = {
   test: (provider?: string) =>
     fetchAPI<{ success: boolean; response?: string; error?: string; provider?: string }>('/api/providers/test', { method: 'POST', body: JSON.stringify({ provider }) }),
+  testKey: (provider: string, apiKey: string) =>
+    fetchAPI<{ success: boolean; response?: string; error?: string; provider?: string }>('/api/providers/test-key', { method: 'POST', body: JSON.stringify({ provider, apiKey }) }),
+};
+
+export const onboardingAPI = {
+  getStatus: () =>
+    fetchAPI<{ completed: boolean; userName?: string; completedAt?: number }>('/api/onboarding/status'),
+  complete: (data: {
+    userName: string;
+    provider?: { primary: string; apiKey: string; keyName: string };
+    channels?: { telegram?: { botToken: string } };
+    aboutYou?: { work?: string; goals?: string; goodDay?: string };
+  }) =>
+    fetchAPI<{ success: boolean }>('/api/onboarding/complete', { method: 'POST', body: JSON.stringify(data) }),
+  getWelcome: () =>
+    fetchAPI<{ message: string }>('/api/onboarding/welcome'),
 };
 
 export const proactiveAPI = {
