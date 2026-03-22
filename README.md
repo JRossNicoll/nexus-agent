@@ -33,7 +33,7 @@ npx nexus chat "Hello, Nexus!"
 
 ## Configuration
 
-Configuration is stored at `~/.nexus/config.json`. On first run, defaults are created automatically.
+Configuration is stored at `~/.nexus/config.json`. On first run, defaults are created automatically. API keys are set during onboarding — no manual config editing needed.
 
 ```json
 {
@@ -41,18 +41,18 @@ Configuration is stored at `~/.nexus/config.json`. On first run, defaults are cr
     "primary": "anthropic/claude-sonnet-4-6",
     "fallback": "openai/gpt-4o",
     "apiKeys": {
-      "anthropic": "${ANTHROPIC_API_KEY}",
-      "openai": "${OPENAI_API_KEY}",
-      "openrouter": "${OPENROUTER_API_KEY}",
+      "anthropic": "your-api-key-here",
+      "openai": "",
+      "openrouter": "",
       "ollama": "http://localhost:11434"
     }
   },
   "gateway": {
     "port": 18799,
-    "auth": { "token": "${NEXUS_GATEWAY_TOKEN}" }
+    "auth": { "token": "" }
   },
   "memory": {
-    "embeddingModel": "openai/text-embedding-3-small",
+    "embeddingModel": "local/fallback",
     "vectorStore": "sqlite-vec"
   }
 }
