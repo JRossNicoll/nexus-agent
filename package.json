@@ -1,0 +1,56 @@
+{
+  "name": "nexus-agent",
+  "version": "0.1.0",
+  "description": "NEXUS — Enhanced Personal AI Agent Platform",
+  "type": "module",
+  "main": "dist/gateway/index.js",
+  "bin": {
+    "nexus": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc && npm run build:web",
+    "build:gateway": "tsc",
+    "build:web": "cd web && npm run build",
+    "dev": "tsx src/gateway/index.ts",
+    "dev:web": "cd web && npm run dev",
+    "start": "node dist/gateway/index.js",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "validate:gateway": "tsx scripts/validate_gateway.ts",
+    "validate:providers": "tsx scripts/validate_providers.ts",
+    "validate:memory": "tsx scripts/validate_memory.ts",
+    "validate:channels": "tsx scripts/validate_channels.ts",
+    "validate:ui": "tsx scripts/validate_ui.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@fastify/cors": "^10.0.1",
+    "@fastify/static": "^8.0.3",
+    "@fastify/websocket": "^11.0.1",
+    "better-sqlite3": "^11.7.0",
+    "commander": "^12.1.0",
+    "croner": "^9.0.0",
+    "duckduckgo-search": "^1.0.7",
+    "fastify": "^5.2.1",
+    "grammy": "^1.35.0",
+    "gray-matter": "^4.0.3",
+    "node-fetch": "^3.3.2",
+    "ollama": "^0.5.14",
+    "openai": "^4.82.0",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.0",
+    "chokidar": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.5.13",
+    "eslint": "^9.16.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
