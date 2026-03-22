@@ -15,7 +15,7 @@ export class EmbeddingService {
       return this.embedWithOpenAI(text, model.replace('openai/', ''));
     }
 
-    // Fallback: simple hash-based embedding for when no API key is configured
+    // local/fallback or any other provider: use hash-based embedding
     return this.fallbackEmbed(text);
   }
 

@@ -10,20 +10,20 @@ const DEFAULT_CONFIG: NexusConfig = {
     primary: 'anthropic/claude-sonnet-4-6',
     fallback: 'openai/gpt-4o',
     apiKeys: {
-      anthropic: '${ANTHROPIC_API_KEY}',
-      openai: '${OPENAI_API_KEY}',
-      openrouter: '${OPENROUTER_API_KEY}',
+      anthropic: process.env.ANTHROPIC_API_KEY ?? '',
+      openai: process.env.OPENAI_API_KEY ?? '',
+      openrouter: process.env.OPENROUTER_API_KEY ?? '',
       ollama: 'http://localhost:11434',
     },
   },
   gateway: {
     port: 18799,
     auth: {
-      token: '${NEXUS_GATEWAY_TOKEN}',
+      token: process.env.NEXUS_GATEWAY_TOKEN ?? '',
     },
   },
   memory: {
-    embeddingModel: 'openai/text-embedding-3-small',
+    embeddingModel: 'local/fallback',
     vectorStore: 'sqlite-vec',
   },
   channels: {},
@@ -42,7 +42,24 @@ export function loadConfig(): NexusConfig {
   try {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
     const config = JSON.parse(raw) as NexusConfig;
-    return { ...DEFAULT_CONFIG, ...config };
+    const merged = { ...DEFAULT_CONFIG, ...config };
+
+    // Resolve any remaining ${...} env var placeholders from older configs
+    if (merged.provider?.apiKeys) {
+      for (const [key, value] of Object.entries(merged.provider.apiKeys)) {
+        if (typeof value === 'string' && value.startsWith('${') && value.endsWith('}')) {
+          const envName = value.slice(2, -1);
+          (merged.provider.apiKeys as Record<string, string>)[key] = process.env[envName] ?? '';
+        }
+      }
+    }
+    if (merged.gateway?.auth?.token && typeof merged.gateway.auth.token === 'string' &&
+        merged.gateway.auth.token.startsWith('${') && merged.gateway.auth.token.endsWith('}')) {
+      const envName = merged.gateway.auth.token.slice(2, -1);
+      merged.gateway.auth.token = process.env[envName] ?? '';
+    }
+
+    return merged;
   } catch (error) {
     console.error('Failed to load config, using defaults:', error);
     return DEFAULT_CONFIG;
