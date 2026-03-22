@@ -4,7 +4,7 @@ import QueryProvider from '@/lib/query-provider';
 
 export const metadata: Metadata = {
   title: 'NEXUS — Personal AI Agent',
-  description: 'Enhanced Personal AI Agent Platform',
+  description: 'Your intelligent personal AI assistant with memory, skills, and proactive insights.',
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-screen" style={{ background: '#0c0e12' }}>
+      <body className="min-h-screen" style={{ background: '#0a0a0a' }}>
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>

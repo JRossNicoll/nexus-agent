@@ -138,9 +138,9 @@ export default function ActivityView({ onNavigate }: ActivityViewProps) {
       <div style={{
         height: 48, borderBottom: "1px solid var(--border)",
         display: "flex", alignItems: "center", padding: "0 20px", gap: 10,
-        background: "rgba(12,14,18,0.6)", backdropFilter: "blur(12px)",
+        background: "rgba(10,10,10,0.6)", backdropFilter: "blur(12px)",
       }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(45,140,255,0.38)" strokeWidth="1.8">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,51,51,0.38)" strokeWidth="1.8">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
         </svg>
         <div style={{ color: "var(--text-2)", fontSize: 12.5, fontWeight: 500, flex: 1 }}>Activity</div>
@@ -152,7 +152,7 @@ export default function ActivityView({ onNavigate }: ActivityViewProps) {
                 fontFamily: "var(--font-mono)", textTransform: "capitalize",
                 background: filter === f ? "var(--accent-mid)" : "transparent",
                 color: filter === f ? "var(--accent)" : "var(--text-3)",
-                border: filter === f ? "1px solid rgba(45,140,255,0.15)" : "1px solid transparent",
+                border: filter === f ? "1px solid rgba(255,51,51,0.15)" : "1px solid transparent",
               }}>{f}</button>
           ))}
         </div>
@@ -184,7 +184,7 @@ export default function ActivityView({ onNavigate }: ActivityViewProps) {
                 </div>
                 {/* Session summary */}
                 {(summaryCache[session.id] || loadingSummary[session.id]) && (
-                  <div style={{ padding: "6px 12px", marginBottom: 8, fontSize: 12, color: "var(--text-2)", fontStyle: "italic", background: "rgba(45,140,255,0.03)", borderRadius: "var(--r-sm)", borderLeft: "2px solid rgba(45,140,255,0.2)" }}>
+                  <div style={{ padding: "6px 12px", marginBottom: 8, fontSize: 12, color: "var(--text-2)", fontStyle: "italic", background: "rgba(255,51,51,0.03)", borderRadius: "var(--r-sm)", borderLeft: "2px solid rgba(255,51,51,0.2)" }}>
                     {loadingSummary[session.id] ? "Generating summary..." : summaryCache[session.id]}
                   </div>
                 )}

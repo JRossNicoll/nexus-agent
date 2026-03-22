@@ -111,9 +111,9 @@ export default function SettingsView() {
       <div style={{
         height: 48, borderBottom: "1px solid var(--border)",
         display: "flex", alignItems: "center", padding: "0 20px", gap: 10,
-        background: "rgba(12,14,18,0.6)", backdropFilter: "blur(12px)",
+        background: "rgba(10,10,10,0.6)", backdropFilter: "blur(12px)",
       }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(45,140,255,0.38)" strokeWidth="1.8">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,51,51,0.38)" strokeWidth="1.8">
           <circle cx="12" cy="12" r="3"/>
         </svg>
         <div style={{ color: "var(--text-2)", fontSize: 12.5, fontWeight: 500 }}>Settings</div>
@@ -134,7 +134,7 @@ export default function SettingsView() {
                     padding: "6px 14px", borderRadius: "var(--r-sm)", fontSize: 12, cursor: "pointer",
                     background: provider?.provider === p ? "var(--accent-mid)" : "var(--bg-raised)",
                     color: provider?.provider === p ? "var(--accent)" : "var(--text-2)",
-                    border: provider?.provider === p ? "1px solid rgba(45,140,255,0.2)" : "1px solid var(--border)",
+                    border: provider?.provider === p ? "1px solid rgba(255,51,51,0.2)" : "1px solid var(--border)",
                   }}>{p}</button>
               ))}
             </div>

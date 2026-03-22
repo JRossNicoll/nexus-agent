@@ -82,12 +82,12 @@ function buildMarkdownComponents(): Components {
       return <h3 style={{ fontFamily: "Inter, sans-serif", fontWeight: 600, color: "#c8cdd6", marginBottom: 8, marginTop: 14, fontSize: 13 }}>{children}</h3>;
     },
     a({ href, children }) {
-      return <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#2d8cff", textDecoration: "none" }}
+      return <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#ff3333", textDecoration: "none" }}
         onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
         onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>{children}</a>;
     },
     blockquote({ children }) {
-      return <blockquote style={{ borderLeft: "2px solid rgba(45,140,255,0.3)", paddingLeft: 12, color: "#7e8899", margin: "8px 0" }}>{children}</blockquote>;
+      return <blockquote style={{ borderLeft: "2px solid rgba(255,51,51,0.3)", paddingLeft: 12, color: "#7e8899", margin: "8px 0" }}>{children}</blockquote>;
     },
     hr() {
       return <hr style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.07)", margin: "12px 0" }} />;
@@ -118,8 +118,8 @@ function buildMarkdownComponents(): Components {
       // Inline code
       return (
         <code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12,
-          background: "rgba(45,140,255,0.08)", border: "1px solid rgba(45,140,255,0.15)",
-          borderRadius: 4, padding: "1px 6px", color: "rgba(45,140,255,0.85)" }} {...props}>{children}</code>
+          background: "rgba(255,51,51,0.08)", border: "1px solid rgba(255,51,51,0.15)",
+          borderRadius: 4, padding: "1px 6px", color: "rgba(255,51,51,0.85)" }} {...props}>{children}</code>
       );
     },
     pre({ children }) {

@@ -144,10 +144,10 @@ export default function MemoryView() {
   // Category to color mapping
   const categoryColor = (cat?: string) => {
     const colors: Record<string, string> = {
-      fact: "#2d8cff", preference: "#a78bfa", goal: "#5ec26a",
+      fact: "#ff3333", preference: "#a78bfa", goal: "#5ec26a",
       observation: "#ebb95a", task: "#f97316", conversation: "#6ee7b7",
     };
-    return colors[cat || "fact"] || "#2d8cff";
+    return colors[cat || "fact"] || "#ff3333";
   };
 
   // D3 Force-directed graph rendering
@@ -206,7 +206,7 @@ export default function MemoryView() {
       const link = g.append("g").selectAll("line")
         .data(edges)
         .join("line")
-        .attr("stroke", "rgba(45,140,255,0.12)")
+        .attr("stroke", "rgba(255,51,51,0.12)")
         .attr("stroke-width", (d: any) => Math.max(0.5, (d.weight || 0) * 2));
 
       // Node groups
@@ -361,7 +361,7 @@ export default function MemoryView() {
         const parent = circle.parentElement;
         if (!parent) continue;
         const r = parseFloat(circle.getAttribute("r") || "10");
-        const color = circle.getAttribute("fill") || "#2d8cff";
+        const color = circle.getAttribute("fill") || "#ff3333";
 
         // Create ripple circle
         const ripple = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -403,9 +403,9 @@ export default function MemoryView() {
       <div style={{
         height: 48, borderBottom: "1px solid var(--border)",
         display: "flex", alignItems: "center", padding: "0 20px", gap: 10,
-        background: "rgba(12,14,18,0.6)", backdropFilter: "blur(12px)",
+        background: "rgba(10,10,10,0.6)", backdropFilter: "blur(12px)",
       }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(45,140,255,0.38)" strokeWidth="1.8">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,51,51,0.38)" strokeWidth="1.8">
           <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
         </svg>
         <div style={{ color: "var(--text-2)", fontSize: 12.5, fontWeight: 500, flex: 1 }}>Memory Graph</div>
@@ -466,7 +466,7 @@ export default function MemoryView() {
               {loading ? (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-3)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div className="nxs-spin" style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(45,140,255,0.2)", borderTopColor: "var(--accent)" }} />
+                    <div className="nxs-spin" style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(255,51,51,0.2)", borderTopColor: "var(--accent)" }} />
                     <span style={{ fontSize: 13 }}>Loading memories...</span>
                   </div>
                 </div>
@@ -484,7 +484,7 @@ export default function MemoryView() {
                     <div key={mem.id} onClick={() => { setSelectedMemory(mem); setEditing(false); }}
                       style={{
                         padding: "12px 14px", background: "var(--bg-surface)",
-                        border: selectedMemory?.id === mem.id ? "1px solid rgba(45,140,255,0.3)" : "1px solid var(--border)",
+                        border: selectedMemory?.id === mem.id ? "1px solid rgba(255,51,51,0.3)" : "1px solid var(--border)",
                         borderRadius: "var(--r-md)", cursor: "pointer", transition: "all 0.15s",
                       }}>
                       <div style={{ fontSize: 13, color: "var(--text-1)", lineHeight: 1.5, marginBottom: 8, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const }}>

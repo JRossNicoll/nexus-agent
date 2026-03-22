@@ -165,8 +165,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }));
 
     const catColors: Record<string, string> = {
-      fact: "#6366f1", preference: "#a855f7", event: "#ec4899",
-      document: "#3b82f6", insight: "#f59e0b",
+      fact: "#ff3333", preference: "#ff5555", event: "#ff7777",
+      document: "#cc2222", insight: "#ebb95a",
     };
 
     const sim = d3.forceSimulation<MiniNode>(nodes)
@@ -182,7 +182,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     const nodeEls = svg.append("g")
       .selectAll("circle").data(nodes).join("circle")
       .attr("r", d => d.radius)
-      .attr("fill", d => catColors[d.category] || "#6366f1")
+      .attr("fill", d => catColors[d.category] || "#ff3333")
       .attr("opacity", 0.8)
       .attr("stroke", "#ffffff15").attr("stroke-width", 1);
 
@@ -283,7 +283,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onClick={() => setData(d => ({ ...d, provider: p.id, keyName: p.keyName, apiKey: "", keyTested: false }))}
                     className={`w-full text-left p-4 rounded-xl border transition-all ${
                       data.provider === p.id
-                        ? "bg-[var(--accent)]/10 border-indigo-500/40 ring-1 ring-[var(--accent)]/20"
+                        ? "bg-[var(--accent)]/10 border-[#ff3333]/40 ring-1 ring-[var(--accent)]/20"
                         : "bg-[var(--bg-surface)] border-white/[0.06] hover:border-white/[0.12]"
                     }`}
                   >
@@ -329,7 +329,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   <button
                     onClick={handleTestKey}
                     disabled={testing || !data.apiKey.trim()}
-                    className="px-5 py-3 bg-[var(--accent)] hover:bg-indigo-600 disabled:bg-[var(--bg-raised)] disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+                    className="px-5 py-3 bg-[var(--accent)] hover:bg-[#cc2222] disabled:bg-[var(--bg-raised)] disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
                   >
                     {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Test"}
                   </button>
@@ -600,7 +600,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 />
                 <button
                   onClick={onComplete}
-                  className="px-4 py-2 bg-[var(--accent)] hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-[var(--accent)] hover:bg-[#cc2222] text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2"
                 >
                   Send <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -627,7 +627,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <button
                   onClick={nextStep}
                   disabled={!canProceed() || submitting}
-                  className="px-5 py-2.5 bg-[var(--accent)] hover:bg-indigo-600 disabled:bg-[var(--bg-raised)] disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+                  className="px-5 py-2.5 bg-[var(--accent)] hover:bg-[#cc2222] disabled:bg-[var(--bg-raised)] disabled:text-gray-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
                 >
                   {submitting ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Setting up...</>

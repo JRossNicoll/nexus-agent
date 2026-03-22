@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import LandingPage from '@/components/LandingPage';
 import Sidebar from '@/components/Sidebar';
 import ChatView from '@/components/ChatView';
 import MemoryView from '@/components/MemoryView';
@@ -16,22 +17,34 @@ import { authAPI, onboardingAPI } from '@/lib/api';
 import { nexusWS } from '@/lib/websocket';
 
 export default function Home() {
+  const [showApp, setShowApp] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [authenticated, setAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(false);
-  // Track which tabs have been visited so we keep them mounted (cache)
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['home']));
   const [pendingChat, setPendingChat] = useState<string | null>(null);
 
-  // Persistent app-level WebSocket connection
+  // Hash-based routing: #app shows the app, otherwise landing page
   useEffect(() => {
-    nexusWS.connect();
-    return () => { /* don't disconnect on unmount — persistent */ };
+    const checkHash = () => {
+      setShowApp(window.location.hash === '#app');
+    };
+    checkHash();
+    window.addEventListener('hashchange', checkHash);
+    return () => window.removeEventListener('hashchange', checkHash);
   }, []);
 
+  // Persistent app-level WebSocket connection (only when in app mode)
   useEffect(() => {
+    if (showApp) {
+      nexusWS.connect();
+    }
+  }, [showApp]);
+
+  useEffect(() => {
+    if (!showApp) return;
     authAPI.verify('')
       .then((res) => {
         if (res.noAuthRequired || res.authenticated) {
@@ -40,10 +53,10 @@ export default function Home() {
       })
       .catch(() => {})
       .finally(() => setCheckingAuth(false));
-  }, []);
+  }, [showApp]);
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (!authenticated || !showApp) return;
     setCheckingOnboarding(true);
     onboardingAPI.getStatus()
       .then((status) => {
@@ -53,9 +66,8 @@ export default function Home() {
       })
       .catch(() => {})
       .finally(() => setCheckingOnboarding(false));
-  }, [authenticated]);
+  }, [authenticated, showApp]);
 
-  // When activeTab changes, add it to visited set
   useEffect(() => {
     setVisitedTabs(prev => {
       if (prev.has(activeTab)) return prev;
@@ -68,9 +80,19 @@ export default function Home() {
     setPendingChat(msg);
   }, []);
 
-  // All possible tabs
+  const handleBackToLanding = useCallback(() => {
+    window.location.hash = '';
+    setShowApp(false);
+  }, []);
+
   const allTabs = useMemo(() => ['home', 'chat', 'memory', 'skills', 'activity', 'settings'], []);
 
+  // ─── Landing page ───
+  if (!showApp) {
+    return <LandingPage />;
+  }
+
+  // ─── App loading ───
   if (checkingAuth || checkingOnboarding) {
     return (
       <div style={{
@@ -80,7 +102,7 @@ export default function Home() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-2)', fontSize: 13 }}>
           <div style={{
             width: 18, height: 18, borderRadius: '50%',
-            border: '2px solid rgba(45,140,255,0.2)',
+            border: '2px solid rgba(255,51,51,0.2)',
             borderTopColor: 'var(--accent)',
             animation: 'spin 0.8s linear infinite',
           }} />
@@ -101,9 +123,8 @@ export default function Home() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg-base)' }}>
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onLogoClick={handleBackToLanding} />
       <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-        {/* Render visited tabs with display:none to keep them cached */}
         {allTabs.map(tab => {
           const isActive = tab === activeTab;
           const wasVisited = visitedTabs.has(tab);

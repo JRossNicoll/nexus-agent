@@ -158,9 +158,9 @@ export default function SkillsView() {
       <div style={{
         height: 48, borderBottom: "1px solid var(--border)",
         display: "flex", alignItems: "center", padding: "0 20px", gap: 10,
-        background: "rgba(12,14,18,0.6)", backdropFilter: "blur(12px)",
+        background: "rgba(10,10,10,0.6)", backdropFilter: "blur(12px)",
       }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(45,140,255,0.38)" strokeWidth="1.8">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,51,51,0.38)" strokeWidth="1.8">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
         </svg>
         <div style={{ color: "var(--text-2)", fontSize: 12.5, fontWeight: 500, flex: 1 }}>Skills</div>
@@ -172,7 +172,7 @@ export default function SkillsView() {
         {suggestion && (
           <div style={{
             padding: "12px 16px", marginBottom: 16,
-            background: "rgba(45,140,255,0.06)", border: "1px solid rgba(45,140,255,0.12)",
+            background: "rgba(255,51,51,0.06)", border: "1px solid rgba(255,51,51,0.12)",
             borderRadius: "var(--r-md)", display: "flex", alignItems: "center", gap: 12,
           }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8">
