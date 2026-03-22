@@ -102,6 +102,20 @@ export const skillsAPI = {
       method: 'POST',
       body: JSON.stringify({ enabled }),
     }),
+  generate: (description: string) =>
+    fetchAPI<{ success: boolean; generatedSkill?: string; error?: string }>('/api/skills/generate', {
+      method: 'POST',
+      body: JSON.stringify({ description }),
+    }),
+  run: (name: string) =>
+    fetchAPI<{ success: boolean; output?: string; error?: string }>(`/api/skills/${encodeURIComponent(name)}/run`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  getExecutions: (name: string) =>
+    fetchAPI<SkillExecution[]>(`/api/skills/${encodeURIComponent(name)}/executions`),
+  getSuggestions: () =>
+    fetchAPI<{ suggestions: SkillSuggestion[] }>('/api/skills/suggestions'),
 };
 
 export const configAPI = {
@@ -201,6 +215,25 @@ export interface SkillInfo {
   tools: string[];
   filePath: string;
   lastRun?: number;
+  executions?: SkillExecution[];
+  hasNeverRun?: boolean;
+}
+
+export interface SkillExecution {
+  id: string;
+  skill_name: string;
+  triggered_by: string;
+  success: boolean;
+  output: string;
+  error?: string;
+  duration_ms: number;
+  timestamp: number;
+}
+
+export interface SkillSuggestion {
+  title: string;
+  description: string;
+  skillDescription: string;
 }
 
 export interface SkillTrigger {
