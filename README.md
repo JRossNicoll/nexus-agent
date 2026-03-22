@@ -2,6 +2,24 @@
 
 A self-hosted, LLM-agnostic personal AI agent platform with a beautiful web UI, structured inspectable memory, and proactive intelligence.
 
+## Install
+
+**One command. That's it.**
+
+**Mac / Linux:**
+```bash
+git clone https://github.com/JRossNicoll/nexus-agent.git medo && cd medo && ./setup.sh
+```
+
+**Windows:**
+```powershell
+git clone https://github.com/JRossNicoll/nexus-agent.git medo; cd medo; .\setup.bat
+```
+
+This will install dependencies, build the web UI, start Medo, and open your browser automatically. The onboarding flow will guide you through adding your API key — no config files to edit.
+
+> **Requirements:** [Node.js 18+](https://nodejs.org) and [Git](https://git-scm.com)
+
 ## Features
 
 - **Gateway Service** — Persistent background process with WebSocket control plane, OpenAI-compatible REST API, and webhook receiver
@@ -10,25 +28,22 @@ A self-hosted, LLM-agnostic personal AI agent platform with a beautiful web UI, 
 - **Skills System** — Markdown-based skills with cron triggers, keyword triggers, and hot-reload
 - **Proactive Intelligence** — Background worker that surfaces insights without being asked
 - **Tool System** — exec, web_search, web_fetch, memory operations, file I/O, and more
-- **Beautiful Web UI** — Next.js 14 + Tailwind + shadcn/ui with Chat, Memory, Skills, Activity, and Settings
+- **Beautiful Web UI** — Next.js 14 + Tailwind with Chat, Memory Graph, Skills, Activity, and Settings
 
-## Quick Start
+## Quick Start (if already installed)
 
 ```bash
-# Install
-npm install
+# Start Medo
+./setup.sh
 
-# Start gateway in foreground
+# Or start manually
 npm run dev
-
-# Or start as daemon
-npx medo start
-
-# Check status
-npx medo status
 
 # Chat from CLI
 npx medo chat "Hello, Medo!"
+
+# Check status
+npx medo status
 ```
 
 ## Configuration
