@@ -45,7 +45,7 @@ triggers:
 This skill sends a weekly briefing every Monday at 8am.
 It summarises the most important memories and priorities.`;
 
-  const createRes = await fetchJSON("/api/v1/skills", {
+  const createRes = await fetchJSON("/api/skills", {
     method: "POST",
     body: JSON.stringify({ name: "weekly-briefing-test", content: skillContent }),
   });
@@ -53,7 +53,7 @@ It summarises the most important memories and priorities.`;
 
   // 2. Call listing endpoint
   console.log("2. Calling skills listing endpoint...");
-  const listRes = await fetchJSON("/api/v1/skills");
+  const listRes = await fetchJSON("/api/skills");
   assert(listRes.status === 200, "Skills listing returns 200");
 
   const skills = Array.isArray(listRes.data) ? listRes.data : [];
@@ -122,13 +122,13 @@ triggers:
 # Pattern Detector
 Analyzes conversation patterns.`;
 
-  const create2 = await fetchJSON("/api/v1/skills", {
+  const create2 = await fetchJSON("/api/skills", {
     method: "POST",
     body: JSON.stringify({ name: "pattern-detector-test", content: skill2Content }),
   });
   assert(create2.status === 200 || create2.status === 201, "Second skill created");
 
-  const list2 = await fetchJSON("/api/v1/skills");
+  const list2 = await fetchJSON("/api/skills");
   const skill2 = (Array.isArray(list2.data) ? list2.data : []).find((s: any) => s.name === "pattern-detector-test");
   if (skill2) {
     assert(skill2.description === "Detects patterns in user behavior", `Second skill description correct: "${skill2.description}"`);
@@ -140,8 +140,8 @@ Analyzes conversation patterns.`;
   }
 
   // Clean up
-  await fetchJSON("/api/v1/skills/weekly-briefing-test", { method: "DELETE" }).catch(() => {});
-  await fetchJSON("/api/v1/skills/pattern-detector-test", { method: "DELETE" }).catch(() => {});
+  await fetchJSON("/api/skills/weekly-briefing-test", { method: "DELETE" }).catch(() => {});
+  await fetchJSON("/api/skills/pattern-detector-test", { method: "DELETE" }).catch(() => {});
 
   printSummary();
 }

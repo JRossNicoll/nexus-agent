@@ -59,7 +59,7 @@ triggers:
 This skill tests the execution feedback system.
 The output is: "Skill executed successfully for testing"`;
 
-  const createRes = await fetchJSON("/api/v1/skills", {
+  const createRes = await fetchJSON("/api/skills", {
     method: "POST",
     body: JSON.stringify({ name: "test-feedback-skill", content: skillContent }),
   });
@@ -67,7 +67,7 @@ The output is: "Skill executed successfully for testing"`;
 
   // 2. Verify skill appears in listing
   console.log("2. Verifying skill in listing...");
-  const listRes = await fetchJSON("/api/v1/skills");
+  const listRes = await fetchJSON("/api/skills");
   assert(listRes.status === 200, "Skills listing returns 200");
   const skills = Array.isArray(listRes.data) ? listRes.data : [];
   const testSkill = skills.find((s: any) => s.name === "test-feedback-skill");
@@ -98,11 +98,26 @@ The output is: "Skill executed successfully for testing"`;
     } catch {}
   });
 
-  const runRes = await fetchJSON(`/api/skills/test-feedback-skill/run`, { method: "POST" });
-  assert(runRes.status === 200, "Skill run endpoint returns 200");
+  // Run the skill (this makes a real LLM call so may take several seconds)
+  let runRes: { status: number; data: any };
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    const res = await fetch(`${GW}/api/skills/test-feedback-skill/run`, {
+      method: "POST",
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    runRes = { status: res.status, data: await res.json().catch(() => ({})) };
+  } catch (e: any) {
+    console.log(`  Skill run error: ${e.message}`);
+    runRes = { status: 0, data: {} };
+  }
+  console.log(`  Skill run status: ${runRes.status}`);
+  assert(runRes.status === 200, `Skill run endpoint returns 200 (got ${runRes.status})`);
 
-  // Wait for WS event
-  await new Promise(r => setTimeout(r, 3000));
+  // Wait for WS event to arrive
+  await new Promise(r => setTimeout(r, 2000));
 
   // 5. Check WS event fields
   console.log("5. Checking WS event fields...");
@@ -147,7 +162,7 @@ The output is: "Skill executed successfully for testing"`;
 
   // Clean up
   ws.close();
-  await fetchJSON(`/api/v1/skills/test-feedback-skill`, { method: "DELETE" }).catch(() => {});
+  await fetchJSON(`/api/skills/test-feedback-skill`, { method: "DELETE" }).catch(() => {});
 
   printSummary();
 }
