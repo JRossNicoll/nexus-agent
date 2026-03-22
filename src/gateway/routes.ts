@@ -854,6 +854,17 @@ Remember: the skill content is instructions for the AI, not code. Be specific an
     if (body.provider) {
       config.provider.primary = body.provider.primary;
       config.provider.apiKeys[body.provider.keyName] = body.provider.apiKey;
+
+      // Clean up any remaining ${...} placeholders so they don't get written to disk
+      for (const [key, value] of Object.entries(config.provider.apiKeys)) {
+        if (typeof value === 'string' && value.startsWith('${') && value.endsWith('}')) {
+          (config.provider.apiKeys as Record<string, string>)[key] = '';
+        }
+      }
+      if (config.gateway.auth.token.startsWith('${') && config.gateway.auth.token.endsWith('}')) {
+        config.gateway.auth.token = '';
+      }
+
       saveConfig(config);
     }
 
